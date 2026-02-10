@@ -1,0 +1,6 @@
+@echo off
+echo Killing any existing Python processes...
+taskkill /F /IM python.exe /T 2>nul
+
+echo Starting Tennis Shop API...
+.venv\Scripts\python.exe main.py

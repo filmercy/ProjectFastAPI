@@ -1,0 +1,19 @@
+{
+  "first_name": "John",
+  "last_name": "Doe",
+  "phone_number": "555-0123",
+  "email": "john.test@example.com",
+  "rackets": [
+    {
+      "brand": "Wilson",
+      "model": "Pro Staff 97",
+      "grip_size": "4 1/4",
+      "custom_name": "My main racket"
+    },
+    {
+      "brand": "Babolat",
+      "model": "Pure Drive",
+      "grip_size": "4 3/8"
+    }
+  ]
+}
