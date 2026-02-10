@@ -338,6 +338,7 @@ Records of services performed on client rackets.
 ---
 
 ## Recommended Workflow
+python -m uvicorn main:app --reload
 Stop any running servers:
     taskkill //F //IM python.exe //T
 Clear Python cache (optional, if you have weird issues):

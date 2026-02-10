@@ -35,7 +35,9 @@
       "Bash(git add:*)",
       "Bash(del nul)",
       "Bash(git commit:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(cmd /c \"taskkill /PID 8020 /F\")",
+      "Bash(powershell:*)"
     ]
   }
 }
