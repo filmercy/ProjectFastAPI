@@ -1,0 +1,194 @@
+{% extends "layout.html" %}
+{% from "macros/crud.html" import search_bar, action_buttons, modal_wrapper, delete_confirm, add_button, form_input, form_textarea, form_checkbox, modal_buttons %}
+
+{% block title %}Clients - Tennis Shop{% endblock %}
+{% block page_title %}Clients{% endblock %}
+
+{% block content %}
+<script>
+function clientPageData() {
+  var clients = {{ clients | tojson }};
+  return {
+    search: '',
+    allClients: clients,
+    filtered: clients,
+    createOpen: false,
+    creating: {},
+    editOpen: false,
+    editing: {},
+    deleteOpen: false,
+    deletingId: null,
+    init() {
+      this.$watch('search', (q) => {
+        if (!q) { this.filtered = this.allClients; return; }
+        var query = q.toLowerCase();
+        this.filtered = this.allClients.filter(c =>
+          (c.first_name || '').toLowerCase().includes(query) ||
+          (c.last_name  || '').toLowerCase().includes(query) ||
+          (c.email      || '').toLowerCase().includes(query) ||
+          (c.phone_number || '').toLowerCase().includes(query) ||
+          (c.city       || '').toLowerCase().includes(query)
+        );
+      });
+    },
+    openCreate() {
+      this.creating = {
+        first_name: '', last_name: '', email: '', phone_number: '',
+        date_of_birth: '', address_line1: '', address_line2: '',
+        city: '', postal_code: '', country: '', notes: ''
+      };
+      this.createOpen = true;
+    },
+    closeCreate() { this.createOpen = false; },
+    async saveCreate() {
+      const res = await fetch('/api/v1/clients/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          first_name:    this.creating.first_name,
+          last_name:     this.creating.last_name,
+          email:         this.creating.email         || null,
+          phone_number:  this.creating.phone_number,
+          date_of_birth: this.creating.date_of_birth || null,
+          address_line1: this.creating.address_line1 || null,
+          address_line2: this.creating.address_line2 || null,
+          city:          this.creating.city           || null,
+          postal_code:   this.creating.postal_code   || null,
+          country:       this.creating.country       || null,
+          notes:         this.creating.notes          || null,
+        })
+      });
+      if (res.ok) { window.location.reload(); } else { alert('Create failed. Check required fields.'); }
+    },
+    openEdit(c) { this.editing = Object.assign({}, c); this.editOpen = true; },
+    closeEdit() { this.editOpen = false; },
+    async saveEdit() {
+      const res = await fetch('/api/v1/clients/' + this.editing.id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          first_name:    this.editing.first_name,
+          last_name:     this.editing.last_name,
+          email:         this.editing.email         || null,
+          phone_number:  this.editing.phone_number,
+          date_of_birth: this.editing.date_of_birth || null,
+          address_line1: this.editing.address_line1 || null,
+          address_line2: this.editing.address_line2 || null,
+          city:          this.editing.city           || null,
+          postal_code:   this.editing.postal_code   || null,
+          country:       this.editing.country       || null,
+          notes:         this.editing.notes          || null,
+          is_active:     this.editing.is_active,
+        })
+      });
+      if (res.ok) { window.location.reload(); } else { alert('Update failed. Please try again.'); }
+    },
+    openDelete(id) { this.deletingId = id; this.deleteOpen = true; },
+    closeDelete() { this.deleteOpen = false; this.deletingId = null; },
+    async confirmDelete() {
+      const res = await fetch('/api/v1/clients/' + this.deletingId, { method: 'DELETE' });
+      if (res.ok) { window.location.reload(); } else { alert('Delete failed. Please try again.'); }
+    }
+  };
+}
+</script>
+
+<div x-data="clientPageData()">
+
+  <!-- HEADER + ADD BUTTON -->
+  <div class="flex items-center justify-between my-6">
+    <h2 class="text-2xl font-semibold text-gray-700 dark:text-gray-200">Clients</h2>
+    {{ add_button("openCreate()", "Add Client") }}
+  </div>
+
+  {{ search_bar("Search clients...") }}
+
+  <!-- DATA TABLE -->
+  <div class="w-full overflow-hidden rounded-lg shadow-xs mb-8">
+    <div class="w-full overflow-x-auto">
+      <table class="w-full whitespace-no-wrap">
+        <thead>
+          <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b dark:border-gray-700 bg-gray-50 dark:text-gray-400 dark:bg-gray-800">
+            <th class="px-4 py-3">Name</th>
+            <th class="px-4 py-3">Email</th>
+            <th class="px-4 py-3">Phone</th>
+            <th class="px-4 py-3">City</th>
+            <th class="px-4 py-3">Joined</th>
+            <th class="px-4 py-3">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y dark:divide-gray-700 dark:bg-gray-800">
+          <template x-for="c in filtered" :key="c.id">
+            <tr class="text-gray-700 dark:text-gray-400">
+              <td class="px-4 py-3">
+                <div class="flex items-center text-sm">
+                  <div class="relative hidden w-8 h-8 mr-3 rounded-full md:flex items-center justify-center bg-purple-100 dark:bg-purple-500">
+                    <span class="text-purple-600 dark:text-purple-100 font-semibold text-xs"
+                      x-text="(c.first_name[0] || '') + (c.last_name[0] || '')"></span>
+                  </div>
+                  <p class="font-semibold" x-text="c.first_name + ' ' + c.last_name"></p>
+                </div>
+              </td>
+              <td class="px-4 py-3 text-sm" x-text="c.email || '-'"></td>
+              <td class="px-4 py-3 text-sm" x-text="c.phone_number || '-'"></td>
+              <td class="px-4 py-3 text-sm" x-text="c.city || '-'"></td>
+              <td class="px-4 py-3 text-sm" x-text="c.created_at"></td>
+              <td class="px-4 py-3">
+                {{ action_buttons("openEdit(c)", "openDelete(c.id)") }}
+              </td>
+            </tr>
+          </template>
+          <tr x-show="filtered.length === 0" class="text-gray-700 dark:text-gray-400">
+            <td class="px-4 py-3 text-sm" colspan="6">No clients found.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CREATE MODAL -->
+  {% call modal_wrapper("createOpen", "closeCreate", "New Client") %}
+  <form @submit.prevent="saveCreate()" class="px-6 py-4 space-y-4">
+    <div class="grid grid-cols-2 gap-4">
+      {{ form_input("creating.first_name", "First Name", required=true) }}
+      {{ form_input("creating.last_name", "Last Name", required=true) }}
+      {{ form_input("creating.phone_number", "Phone Number", type="tel", required=true) }}
+      {{ form_input("creating.email", "Email", type="email") }}
+      {{ form_input("creating.date_of_birth", "Date of Birth", type="date") }}
+      {{ form_input("creating.city", "City") }}
+      {{ form_input("creating.address_line1", "Address Line 1") }}
+      {{ form_input("creating.address_line2", "Address Line 2") }}
+      {{ form_input("creating.postal_code", "Postal Code") }}
+      {{ form_input("creating.country", "Country") }}
+    </div>
+    {{ form_textarea("creating.notes", "Notes") }}
+    {{ modal_buttons("closeCreate", "Create Client") }}
+  </form>
+  {% endcall %}
+
+  <!-- EDIT MODAL -->
+  {% call modal_wrapper("editOpen", "closeEdit", "Edit Client") %}
+  <form @submit.prevent="saveEdit()" class="px-6 py-4 space-y-4">
+    <div class="grid grid-cols-2 gap-4">
+      {{ form_input("editing.first_name", "First Name", required=true) }}
+      {{ form_input("editing.last_name", "Last Name", required=true) }}
+      {{ form_input("editing.phone_number", "Phone Number", type="tel", required=true) }}
+      {{ form_input("editing.email", "Email", type="email") }}
+      {{ form_input("editing.date_of_birth", "Date of Birth", type="date") }}
+      {{ form_input("editing.city", "City") }}
+      {{ form_input("editing.address_line1", "Address Line 1") }}
+      {{ form_input("editing.address_line2", "Address Line 2") }}
+      {{ form_input("editing.postal_code", "Postal Code") }}
+      {{ form_input("editing.country", "Country") }}
+    </div>
+    {{ form_textarea("editing.notes", "Notes") }}
+    {{ form_checkbox("editing.is_active", "Active", "edit-client-active") }}
+    {{ modal_buttons("closeEdit", "Save Changes") }}
+  </form>
+  {% endcall %}
+
+  <!-- DELETE CONFIRM -->
+  {{ delete_confirm("deleteOpen", "closeDelete", "confirmDelete", "Deactivate Client", "This marks the client as inactive. Their data is kept but they won't appear in listings. Are you sure?", "Deactivate") }}
+
+</div>
+{% endblock %}

@@ -1,0 +1,331 @@
+{% extends "layout.html" %}
+{% from "macros/crud.html" import search_bar, action_buttons, modal_wrapper, delete_confirm, add_button, form_input, form_textarea, form_checkbox, modal_buttons, form_select %}
+
+{% block title %}Maintenance - Tennis Shop{% endblock %}
+{% block page_title %}Maintenance{% endblock %}
+
+{% block content %}
+<script>
+function maintenancePageData() {
+  var jobs = {{ jobs | tojson }};
+  return {
+    search: '',
+    allJobs: jobs,
+    filtered: jobs,
+    createOpen: false,
+    creating: {},
+    editOpen: false,
+    editing: {},
+    deleteOpen: false,
+    deletingId: null,
+    init() {
+      this.$watch('search', (q) => {
+        if (!q) { this.filtered = this.allJobs; return; }
+        var query = q.toLowerCase();
+        this.filtered = this.allJobs.filter(j =>
+          (j.client_name  || '').toLowerCase().includes(query) ||
+          (j.racket_info  || '').toLowerCase().includes(query) ||
+          (j.service_type || '').toLowerCase().includes(query) ||
+          (j.string_info  || '').toLowerCase().includes(query)
+        );
+      });
+    },
+    openCreate() {
+      this.creating = {
+        client_racket_id: '', service_type: 'stringing', service_cost: '',
+        service_date: '', main_string_id: '', cross_string_id: '',
+        main_tension_kg: '', cross_tension_kg: '', string_pattern: '',
+        base_grip_id: '', overgrip_id: '', number_of_overgrips: 1,
+        dampener_id: '', dampener_position: '', duration_minutes: '',
+        notes: '', is_warranty_service: false, next_service_due_date: ''
+      };
+      this.createOpen = true;
+    },
+    closeCreate() { this.createOpen = false; },
+    async saveCreate() {
+      const d = this.creating;
+      const res = await fetch('/api/v1/maintenance/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_racket_id:     d.client_racket_id,
+          service_type:         d.service_type,
+          service_cost:         parseFloat(d.service_cost) || 0,
+          service_date:         d.service_date || null,
+          main_string_id:       d.main_string_id    || null,
+          cross_string_id:      d.cross_string_id   || null,
+          main_tension_kg:      d.main_tension_kg !== '' ? parseFloat(d.main_tension_kg) : null,
+          cross_tension_kg:     d.cross_tension_kg !== '' ? parseFloat(d.cross_tension_kg) : null,
+          string_pattern:       d.string_pattern    || null,
+          base_grip_id:         d.base_grip_id      || null,
+          overgrip_id:          d.overgrip_id       || null,
+          number_of_overgrips:  parseInt(d.number_of_overgrips) || 1,
+          dampener_id:          d.dampener_id       || null,
+          dampener_position:    d.dampener_position || null,
+          duration_minutes:     d.duration_minutes !== '' ? parseInt(d.duration_minutes) : null,
+          notes:                d.notes             || null,
+          is_warranty_service:  d.is_warranty_service,
+          next_service_due_date: d.next_service_due_date || null,
+        })
+      });
+      if (res.ok) { window.location.reload(); } else { alert('Create failed. Check required fields.'); }
+    },
+    openEdit(j) { this.editing = Object.assign({}, j); this.editOpen = true; },
+    closeEdit() { this.editOpen = false; },
+    async saveEdit() {
+      const d = this.editing;
+      const res = await fetch('/api/v1/maintenance/' + d.id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service_type:         d.service_type,
+          service_cost:         parseFloat(d.service_cost) || 0,
+          main_string_id:       d.main_string_id    || null,
+          cross_string_id:      d.cross_string_id   || null,
+          main_tension_kg:      d.main_tension_kg !== null && d.main_tension_kg !== '' ? parseFloat(d.main_tension_kg) : null,
+          cross_tension_kg:     d.cross_tension_kg !== null && d.cross_tension_kg !== '' ? parseFloat(d.cross_tension_kg) : null,
+          string_pattern:       d.string_pattern    || null,
+          base_grip_id:         d.base_grip_id      || null,
+          overgrip_id:          d.overgrip_id       || null,
+          number_of_overgrips:  parseInt(d.number_of_overgrips) || 1,
+          dampener_id:          d.dampener_id       || null,
+          dampener_position:    d.dampener_position || null,
+          duration_minutes:     d.duration_minutes !== null && d.duration_minutes !== '' ? parseInt(d.duration_minutes) : null,
+          notes:                d.notes             || null,
+          is_warranty_service:  d.is_warranty_service,
+          next_service_due_date: d.next_service_due_date || null,
+        })
+      });
+      if (res.ok) { window.location.reload(); } else { alert('Update failed. Please try again.'); }
+    },
+    openDelete(id) { this.deletingId = id; this.deleteOpen = true; },
+    closeDelete() { this.deleteOpen = false; this.deletingId = null; },
+    async confirmDelete() {
+      const res = await fetch('/api/v1/maintenance/' + this.deletingId, { method: 'DELETE' });
+      if (res.ok) { window.location.reload(); } else { alert('Delete failed. Please try again.'); }
+    }
+  };
+}
+</script>
+
+<div x-data="maintenancePageData()">
+
+  <!-- HEADER + ADD BUTTON -->
+  <div class="flex items-center justify-between my-6">
+    <h2 class="text-2xl font-semibold text-gray-700 dark:text-gray-200">Maintenance Jobs</h2>
+    {{ add_button("openCreate()", "Add Job") }}
+  </div>
+
+  {{ search_bar("Search maintenance jobs...") }}
+
+  <!-- DATA TABLE -->
+  <div class="w-full overflow-hidden rounded-lg shadow-xs mb-8">
+    <div class="w-full overflow-x-auto">
+      <table class="w-full whitespace-no-wrap">
+        <thead>
+          <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b dark:border-gray-700 bg-gray-50 dark:text-gray-400 dark:bg-gray-800">
+            <th class="px-4 py-3">Client</th>
+            <th class="px-4 py-3">Racket</th>
+            <th class="px-4 py-3">String</th>
+            <th class="px-4 py-3">Tension (kg)</th>
+            <th class="px-4 py-3">Type</th>
+            <th class="px-4 py-3">Cost</th>
+            <th class="px-4 py-3">Date</th>
+            <th class="px-4 py-3">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y dark:divide-gray-700 dark:bg-gray-800">
+          <template x-for="j in filtered" :key="j.id">
+            <tr class="text-gray-700 dark:text-gray-400">
+              <td class="px-4 py-3 text-sm font-semibold" x-text="j.client_name"></td>
+              <td class="px-4 py-3 text-sm" x-text="j.racket_info"></td>
+              <td class="px-4 py-3 text-sm" x-text="j.string_info"></td>
+              <td class="px-4 py-3 text-sm">
+                <span x-text="j.main_tension_kg != null ? (j.cross_tension_kg != null && j.cross_tension_kg !== j.main_tension_kg ? j.main_tension_kg + ' / ' + j.cross_tension_kg : j.main_tension_kg) : '-'"></span>
+              </td>
+              <td class="px-4 py-3 text-xs">
+                <span class="px-2 py-1 font-semibold leading-tight rounded-full"
+                  :class="{
+                    'text-blue-700 bg-blue-100 dark:bg-blue-700 dark:text-blue-100': j.service_type === 'stringing',
+                    'text-orange-700 bg-orange-100 dark:bg-orange-700 dark:text-orange-100': j.service_type === 'repair',
+                    'text-gray-700 bg-gray-100 dark:bg-gray-700 dark:text-gray-100': j.service_type === 'other'
+                  }"
+                  x-text="j.service_type">
+                </span>
+              </td>
+              <td class="px-4 py-3 text-sm" x-text="j.service_cost != null ? '€ ' + j.service_cost.toFixed(2) : '-'"></td>
+              <td class="px-4 py-3 text-sm" x-text="j.service_date"></td>
+              <td class="px-4 py-3">
+                {{ action_buttons("openEdit(j)", "openDelete(j.id)") }}
+              </td>
+            </tr>
+          </template>
+          <tr x-show="filtered.length === 0" class="text-gray-700 dark:text-gray-400">
+            <td class="px-4 py-3 text-sm" colspan="8">No maintenance jobs found.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CREATE MODAL -->
+  {% call modal_wrapper("createOpen", "closeCreate", "New Maintenance Job") %}
+  <form @submit.prevent="saveCreate()" class="px-6 py-4 space-y-4">
+    <!-- Core -->
+    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Service Details</h4>
+    <div class="grid grid-cols-2 gap-4">
+      {% call form_select("creating.client_racket_id", "Client Racket", required=true) %}
+        <option value="" disabled>Select a racket</option>
+        {% for r in rackets_for_dropdown %}
+        <option value="{{ r.id }}">{{ r.label }}</option>
+        {% endfor %}
+      {% endcall %}
+      {% call form_select("creating.service_type", "Service Type", required=true) %}
+        <option value="stringing">Stringing</option>
+        <option value="repair">Repair</option>
+        <option value="other">Other</option>
+      {% endcall %}
+      {{ form_input("creating.service_cost", "Service Cost (€)", type="number", required=true, attrs='step="0.01" min="0"') }}
+      {{ form_input("creating.service_date", "Service Date", type="date") }}
+    </div>
+
+    <!-- String Configuration -->
+    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide pt-2">String Configuration</h4>
+    <div class="grid grid-cols-2 gap-4">
+      {% call form_select("creating.main_string_id", "Main String") %}
+        <option value="">None</option>
+        {% for p in products_for_dropdown %}
+        <option value="{{ p.id }}">{{ p.label }}</option>
+        {% endfor %}
+      {% endcall %}
+      {% call form_select("creating.cross_string_id", "Cross String") %}
+        <option value="">None</option>
+        {% for p in products_for_dropdown %}
+        <option value="{{ p.id }}">{{ p.label }}</option>
+        {% endfor %}
+      {% endcall %}
+      {{ form_input("creating.main_tension_kg", "Main Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
+      {{ form_input("creating.cross_tension_kg", "Cross Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
+      {{ form_input("creating.string_pattern", "String Pattern", attrs='placeholder="e.g. 16x19"') }}
+    </div>
+
+    <!-- Grip & Accessories -->
+    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide pt-2">Grip & Accessories</h4>
+    <div class="grid grid-cols-2 gap-4">
+      {% call form_select("creating.base_grip_id", "Base Grip") %}
+        <option value="">None</option>
+        {% for p in products_for_dropdown %}
+        <option value="{{ p.id }}">{{ p.label }}</option>
+        {% endfor %}
+      {% endcall %}
+      {% call form_select("creating.overgrip_id", "Overgrip") %}
+        <option value="">None</option>
+        {% for p in products_for_dropdown %}
+        <option value="{{ p.id }}">{{ p.label }}</option>
+        {% endfor %}
+      {% endcall %}
+      {{ form_input("creating.number_of_overgrips", "Number of Overgrips", type="number", attrs='min="0" max="10"') }}
+      {% call form_select("creating.dampener_id", "Dampener") %}
+        <option value="">None</option>
+        {% for p in products_for_dropdown %}
+        <option value="{{ p.id }}">{{ p.label }}</option>
+        {% endfor %}
+      {% endcall %}
+      {{ form_input("creating.dampener_position", "Dampener Position", attrs='placeholder="e.g. center, bottom"') }}
+      {{ form_input("creating.duration_minutes", "Duration (min)", type="number", attrs='min="0"') }}
+    </div>
+
+    <!-- Other -->
+    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide pt-2">Other</h4>
+    <div class="grid grid-cols-2 gap-4">
+      {{ form_input("creating.next_service_due_date", "Next Service Due", type="date") }}
+    </div>
+    {{ form_textarea("creating.notes", "Notes") }}
+    {{ form_checkbox("creating.is_warranty_service", "Warranty Service", "create-warranty") }}
+    {{ modal_buttons("closeCreate", "Create Job") }}
+  </form>
+  {% endcall %}
+
+  <!-- EDIT MODAL -->
+  {% call modal_wrapper("editOpen", "closeEdit", "Edit Maintenance Job") %}
+  <form @submit.prevent="saveEdit()" class="px-6 py-4 space-y-4">
+    <!-- Racket (read-only) -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1">Client & Racket</label>
+      <p class="w-full px-3 py-2 text-sm text-gray-500 bg-gray-100 border rounded-md dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600"
+        x-text="editing.client_name + ' — ' + editing.racket_info"></p>
+    </div>
+
+    <!-- Core -->
+    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Service Details</h4>
+    <div class="grid grid-cols-2 gap-4">
+      {% call form_select("editing.service_type", "Service Type", required=true) %}
+        <option value="stringing">Stringing</option>
+        <option value="repair">Repair</option>
+        <option value="other">Other</option>
+      {% endcall %}
+      {{ form_input("editing.service_cost", "Service Cost (€)", type="number", required=true, attrs='step="0.01" min="0"') }}
+    </div>
+
+    <!-- String Configuration -->
+    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide pt-2">String Configuration</h4>
+    <div class="grid grid-cols-2 gap-4">
+      {% call form_select("editing.main_string_id", "Main String") %}
+        <option value="">None</option>
+        {% for p in products_for_dropdown %}
+        <option value="{{ p.id }}">{{ p.label }}</option>
+        {% endfor %}
+      {% endcall %}
+      {% call form_select("editing.cross_string_id", "Cross String") %}
+        <option value="">None</option>
+        {% for p in products_for_dropdown %}
+        <option value="{{ p.id }}">{{ p.label }}</option>
+        {% endfor %}
+      {% endcall %}
+      {{ form_input("editing.main_tension_kg", "Main Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
+      {{ form_input("editing.cross_tension_kg", "Cross Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
+      {{ form_input("editing.string_pattern", "String Pattern", attrs='placeholder="e.g. 16x19"') }}
+    </div>
+
+    <!-- Grip & Accessories -->
+    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide pt-2">Grip & Accessories</h4>
+    <div class="grid grid-cols-2 gap-4">
+      {% call form_select("editing.base_grip_id", "Base Grip") %}
+        <option value="">None</option>
+        {% for p in products_for_dropdown %}
+        <option value="{{ p.id }}">{{ p.label }}</option>
+        {% endfor %}
+      {% endcall %}
+      {% call form_select("editing.overgrip_id", "Overgrip") %}
+        <option value="">None</option>
+        {% for p in products_for_dropdown %}
+        <option value="{{ p.id }}">{{ p.label }}</option>
+        {% endfor %}
+      {% endcall %}
+      {{ form_input("editing.number_of_overgrips", "Number of Overgrips", type="number", attrs='min="0" max="10"') }}
+      {% call form_select("editing.dampener_id", "Dampener") %}
+        <option value="">None</option>
+        {% for p in products_for_dropdown %}
+        <option value="{{ p.id }}">{{ p.label }}</option>
+        {% endfor %}
+      {% endcall %}
+      {{ form_input("editing.dampener_position", "Dampener Position", attrs='placeholder="e.g. center, bottom"') }}
+      {{ form_input("editing.duration_minutes", "Duration (min)", type="number", attrs='min="0"') }}
+    </div>
+
+    <!-- Other -->
+    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide pt-2">Other</h4>
+    <div class="grid grid-cols-2 gap-4">
+      {{ form_input("editing.next_service_due_date", "Next Service Due", type="date") }}
+    </div>
+    {{ form_textarea("editing.notes", "Notes") }}
+    {{ form_checkbox("editing.is_warranty_service", "Warranty Service", "edit-warranty") }}
+    {{ modal_buttons("closeEdit", "Save Changes") }}
+  </form>
+  {% endcall %}
+
+  <!-- DELETE CONFIRM (hard delete) -->
+  {{ delete_confirm("deleteOpen", "closeDelete", "confirmDelete", "Delete Maintenance Record", "This will permanently delete this maintenance record. This action cannot be undone. Are you sure?", "Delete") }}
+
+</div>
+{% endblock %}

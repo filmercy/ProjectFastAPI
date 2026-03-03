@@ -1,9 +1,10 @@
 """Tennis Shop Management System - FastAPI Application."""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
-from app.routers import auth, clients, categories, products, client_rackets, maintenance
+from app.routers import auth, clients, categories, products, client_rackets, maintenance, views
 
 # Create FastAPI application
 app = FastAPI(
@@ -44,7 +45,11 @@ async def health_check():
     }
 
 
+# Serve static files (CSS, JS for the dashboard UI)
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 # Include routers
+app.include_router(views.router)  # HTML pages — no prefix
 app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
 app.include_router(clients.router, prefix=settings.API_V1_PREFIX)
 app.include_router(categories.router, prefix=settings.API_V1_PREFIX)

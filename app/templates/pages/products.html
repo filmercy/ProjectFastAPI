@@ -1,0 +1,187 @@
+{% extends "layout.html" %}
+{% from "macros/crud.html" import search_bar, action_buttons, modal_wrapper, delete_confirm, add_button, form_input, form_textarea, form_checkbox, modal_buttons, form_select %}
+
+{% block title %}Products - Tennis Shop{% endblock %}
+{% block page_title %}Products{% endblock %}
+
+{% block content %}
+<script>
+function productPageData() {
+  var products = {{ products | tojson }};
+  return {
+    search: '',
+    allProducts: products,
+    filtered: products,
+    createOpen: false,
+    creating: {},
+    editOpen: false,
+    deleteOpen: false,
+    editing: {},
+    deletingId: null,
+    init() {
+      this.$watch('search', (q) => {
+        if (!q) { this.filtered = this.allProducts; return; }
+        var query = q.toLowerCase();
+        this.filtered = this.allProducts.filter(p =>
+          (p.name || '').toLowerCase().includes(query) ||
+          (p.brand || '').toLowerCase().includes(query) ||
+          (p.category_name || '').toLowerCase().includes(query)
+        );
+      });
+    },
+    openCreate() {
+      this.creating = { name: '', brand: '', model: '', sku: '', description: '', price: '', cost_price: '', quantity_in_stock: 0, category_id: '' };
+      this.createOpen = true;
+    },
+    closeCreate() { this.createOpen = false; },
+    async saveCreate() {
+      const res = await fetch('/api/v1/products/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: this.creating.name,
+          brand: this.creating.brand,
+          model: this.creating.model || null,
+          sku: this.creating.sku || null,
+          description: this.creating.description || null,
+          price: this.creating.price !== '' ? parseFloat(this.creating.price) : null,
+          cost_price: this.creating.cost_price !== '' ? parseFloat(this.creating.cost_price) : null,
+          quantity_in_stock: parseInt(this.creating.quantity_in_stock) || 0,
+          category_id: this.creating.category_id,
+        })
+      });
+      if (res.ok) { window.location.reload(); } else { alert('Create failed. Please check required fields.'); }
+    },
+    openEdit(p) { this.editing = Object.assign({}, p); this.editOpen = true; },
+    closeEdit() { this.editOpen = false; },
+    openDelete(id) { this.deletingId = id; this.deleteOpen = true; },
+    closeDelete() { this.deleteOpen = false; this.deletingId = null; },
+    async saveEdit() {
+      const res = await fetch('/api/v1/products/' + this.editing.id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: this.editing.name,
+          brand: this.editing.brand,
+          model: this.editing.model || null,
+          sku: this.editing.sku || null,
+          description: this.editing.description || null,
+          price: this.editing.price !== '' && this.editing.price !== null ? parseFloat(this.editing.price) : null,
+          cost_price: this.editing.cost_price !== '' && this.editing.cost_price !== null ? parseFloat(this.editing.cost_price) : null,
+          quantity_in_stock: parseInt(this.editing.quantity_in_stock) || 0,
+          category_id: this.editing.category_id,
+          is_active: this.editing.is_active,
+        })
+      });
+      if (res.ok) { window.location.reload(); } else { alert('Update failed. Please try again.'); }
+    },
+    async confirmDelete() {
+      const res = await fetch('/api/v1/products/' + this.deletingId, { method: 'DELETE' });
+      if (res.ok) { window.location.reload(); } else { alert('Delete failed. Please try again.'); }
+    }
+  };
+}
+</script>
+
+<div x-data="productPageData()">
+
+  <!-- HEADER + ADD BUTTON -->
+  <div class="flex items-center justify-between my-6">
+    <h2 class="text-2xl font-semibold text-gray-700 dark:text-gray-200">Products</h2>
+    {{ add_button("openCreate()", "Add Product") }}
+  </div>
+
+  {{ search_bar("Search products...") }}
+
+  <!-- DATA TABLE -->
+  <div class="w-full overflow-hidden rounded-lg shadow-xs mb-8">
+    <div class="w-full overflow-x-auto">
+      <table class="w-full whitespace-no-wrap">
+        <thead>
+          <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b dark:border-gray-700 bg-gray-50 dark:text-gray-400 dark:bg-gray-800">
+            <th class="px-4 py-3">Name</th>
+            <th class="px-4 py-3">Brand</th>
+            <th class="px-4 py-3">Category</th>
+            <th class="px-4 py-3">Price</th>
+            <th class="px-4 py-3">Stock</th>
+            <th class="px-4 py-3">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y dark:divide-gray-700 dark:bg-gray-800">
+          <template x-for="p in filtered" :key="p.id">
+            <tr class="text-gray-700 dark:text-gray-400">
+              <td class="px-4 py-3 text-sm font-semibold" x-text="p.name"></td>
+              <td class="px-4 py-3 text-sm" x-text="p.brand"></td>
+              <td class="px-4 py-3 text-sm" x-text="p.category_name || '-'"></td>
+              <td class="px-4 py-3 text-sm" x-text="p.price !== null ? '€ ' + p.price.toFixed(2) : '-'"></td>
+              <td class="px-4 py-3 text-xs">
+                <span
+                  class="px-2 py-1 font-semibold leading-tight rounded-full"
+                  :class="p.quantity_in_stock <= 5 ? 'text-red-700 bg-red-100 dark:bg-red-700 dark:text-red-100' : 'text-green-700 bg-green-100 dark:bg-green-700 dark:text-green-100'"
+                  x-text="p.quantity_in_stock"
+                ></span>
+              </td>
+              <td class="px-4 py-3">
+                {{ action_buttons("openEdit(p)", "openDelete(p.id)") }}
+              </td>
+            </tr>
+          </template>
+          <tr x-show="filtered.length === 0" class="text-gray-700 dark:text-gray-400">
+            <td class="px-4 py-3 text-sm" colspan="6">No products found.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CREATE MODAL -->
+  {% call modal_wrapper("createOpen", "closeCreate", "New Product") %}
+  <form @submit.prevent="saveCreate()" class="px-6 py-4 space-y-4">
+    <div class="grid grid-cols-2 gap-4">
+      {{ form_input("creating.name", "Name", required=true) }}
+      {{ form_input("creating.brand", "Brand", required=true) }}
+      {{ form_input("creating.model", "Model") }}
+      {{ form_input("creating.sku", "SKU") }}
+      {{ form_input("creating.price", "Price (€)", type="number", attrs='step="0.01" min="0"') }}
+      {{ form_input("creating.cost_price", "Cost Price (€)", type="number", attrs='step="0.01" min="0"') }}
+      {{ form_input("creating.quantity_in_stock", "Stock Quantity", type="number", attrs='min="0"') }}
+      {% call form_select("creating.category_id", "Category", required=true) %}
+        <option value="" disabled>Select a category</option>
+        {% for cat in categories %}
+        <option value="{{ cat.id }}">{{ cat.name }}</option>
+        {% endfor %}
+      {% endcall %}
+    </div>
+    {{ form_textarea("creating.description", "Description") }}
+    {{ modal_buttons("closeCreate", "Create Product") }}
+  </form>
+  {% endcall %}
+
+  <!-- EDIT MODAL -->
+  {% call modal_wrapper("editOpen", "closeEdit", "Edit Product") %}
+  <form @submit.prevent="saveEdit()" class="px-6 py-4 space-y-4">
+    <div class="grid grid-cols-2 gap-4">
+      {{ form_input("editing.name", "Name", required=true) }}
+      {{ form_input("editing.brand", "Brand", required=true) }}
+      {{ form_input("editing.model", "Model") }}
+      {{ form_input("editing.sku", "SKU") }}
+      {{ form_input("editing.price", "Price (€)", type="number", attrs='step="0.01" min="0"') }}
+      {{ form_input("editing.cost_price", "Cost Price (€)", type="number", attrs='step="0.01" min="0"') }}
+      {{ form_input("editing.quantity_in_stock", "Stock Quantity", type="number", attrs='min="0"') }}
+      {% call form_select("editing.category_id", "Category") %}
+        {% for cat in categories %}
+        <option value="{{ cat.id }}">{{ cat.name }}</option>
+        {% endfor %}
+      {% endcall %}
+    </div>
+    {{ form_textarea("editing.description", "Description") }}
+    {{ form_checkbox("editing.is_active", "Active", "edit-is-active") }}
+    {{ modal_buttons("closeEdit", "Save Changes") }}
+  </form>
+  {% endcall %}
+
+  <!-- DELETE CONFIRM -->
+  {{ delete_confirm("deleteOpen", "closeDelete", "confirmDelete", "Deactivate Product", "This will mark the product as inactive. Data is kept but the product won't appear in listings. Are you sure?", "Deactivate") }}
+
+</div>
+{% endblock %}
