@@ -1,6 +1,5 @@
 """Application configuration using Pydantic Settings."""
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List
 
 
 class Settings(BaseSettings):
@@ -26,11 +25,11 @@ class Settings(BaseSettings):
 
     # File Upload
     MAX_UPLOAD_SIZE: int = 5242880  # 5MB in bytes
-    ALLOWED_IMAGE_TYPES: List[str] = ["image/jpeg", "image/png", "image/webp"]
+    ALLOWED_IMAGE_TYPES: str = "image/jpeg,image/png,image/webp"
     UPLOAD_DIR: str = "app/static/uploads"
 
     # CORS (for frontend app)
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8080"]
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8080"
 
     # Email (for password reset)
     SMTP_HOST: str = "smtp.gmail.com"
@@ -48,10 +47,18 @@ class Settings(BaseSettings):
     DEFAULT_CURRENCY: str = "EUR"
     TIMEZONE: str = "Europe/Rome"
 
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",")]
+
+    @property
+    def allowed_image_types_list(self) -> list[str]:
+        return [t.strip() for t in self.ALLOWED_IMAGE_TYPES.split(",")]
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
-        case_sensitive=True
+        case_sensitive=True,
     )
 
 
