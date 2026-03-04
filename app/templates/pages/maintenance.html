@@ -1,5 +1,5 @@
 {% extends "layout.html" %}
-{% from "macros/crud.html" import search_bar, action_buttons, modal_wrapper, delete_confirm, add_button, form_input, form_textarea, form_checkbox, modal_buttons, form_select %}
+{% from "macros/crud.html" import search_bar, action_buttons, modal_wrapper, delete_confirm, add_button, form_input, form_textarea, form_checkbox, modal_buttons, form_select, toast %}
 
 {% block title %}Maintenance - Tennis Shop{% endblock %}
 {% block page_title %}Maintenance{% endblock %}
@@ -7,17 +7,32 @@
 {% block content %}
 <script>
 function maintenancePageData() {
-  var jobs = {{ jobs | tojson }};
+  var jobs     = {{ jobs | tojson }};
+  var rackets  = {{ rackets_for_dropdown | tojson }};
+  var strings  = {{ strings_for_dropdown | tojson }};
+  var products = {{ products_for_dropdown | tojson }};
   return {
     search: '',
     allJobs: jobs,
     filtered: jobs,
+    rackets: rackets,
+    strings: strings,
+    products: products,
     createOpen: false,
     creating: {},
     editOpen: false,
     editing: {},
     deleteOpen: false,
     deletingId: null,
+    toastVisible: false,
+    toastMessage: '',
+    toastType: 'success',
+    showToast(message, type = 'success') {
+      this.toastMessage = message;
+      this.toastType = type;
+      this.toastVisible = true;
+      setTimeout(() => { this.toastVisible = false; }, 4000);
+    },
     init() {
       this.$watch('search', (q) => {
         if (!q) { this.filtered = this.allJobs; return; }
@@ -68,7 +83,8 @@ function maintenancePageData() {
           next_service_due_date: d.next_service_due_date || null,
         })
       });
-      if (res.ok) { window.location.reload(); } else { alert('Create failed. Check required fields.'); }
+      if (res.ok) { this.closeCreate(); this.showToast('Maintenance job created successfully.'); setTimeout(() => window.location.reload(), 1500); }
+      else { const err = await res.json().catch(() => null); this.showToast(err?.detail || 'Create failed. Check required fields.', 'error'); }
     },
     openEdit(j) { this.editing = Object.assign({}, j); this.editOpen = true; },
     closeEdit() { this.editOpen = false; },
@@ -96,13 +112,15 @@ function maintenancePageData() {
           next_service_due_date: d.next_service_due_date || null,
         })
       });
-      if (res.ok) { window.location.reload(); } else { alert('Update failed. Please try again.'); }
+      if (res.ok) { this.closeEdit(); this.showToast('Maintenance job updated successfully.'); setTimeout(() => window.location.reload(), 1500); }
+      else { const err = await res.json().catch(() => null); this.showToast(err?.detail || 'Update failed. Please try again.', 'error'); }
     },
     openDelete(id) { this.deletingId = id; this.deleteOpen = true; },
     closeDelete() { this.deleteOpen = false; this.deletingId = null; },
     async confirmDelete() {
       const res = await fetch('/api/v1/maintenance/' + this.deletingId, { method: 'DELETE' });
-      if (res.ok) { window.location.reload(); } else { alert('Delete failed. Please try again.'); }
+      if (res.ok) { this.closeDelete(); this.showToast('Maintenance record deleted successfully.'); setTimeout(() => window.location.reload(), 1500); }
+      else { const err = await res.json().catch(() => null); this.showToast(err?.detail || 'Delete failed. Please try again.', 'error'); }
     }
   };
 }
@@ -146,9 +164,9 @@ function maintenancePageData() {
               <td class="px-4 py-3 text-xs">
                 <span class="px-2 py-1 font-semibold leading-tight rounded-full"
                   :class="{
-                    'text-blue-700 bg-blue-100 dark:bg-blue-700 dark:text-blue-100': j.service_type === 'stringing',
-                    'text-orange-700 bg-orange-100 dark:bg-orange-700 dark:text-orange-100': j.service_type === 'repair',
-                    'text-gray-700 bg-gray-100 dark:bg-gray-700 dark:text-gray-100': j.service_type === 'other'
+                    'text-white bg-purple-600 dark:bg-purple-700': j.service_type === 'stringing',
+                    'text-white bg-purple-500 dark:bg-purple-600': j.service_type === 'repair',
+                    'text-white bg-purple-400 dark:bg-purple-500': j.service_type === 'other'
                   }"
                   x-text="j.service_type">
                 </span>
@@ -169,163 +187,186 @@ function maintenancePageData() {
   </div>
 
   <!-- CREATE MODAL -->
-  {% call modal_wrapper("createOpen", "closeCreate", "New Maintenance Job") %}
-  <form @submit.prevent="saveCreate()" class="px-6 py-4 space-y-4">
-    <!-- Core -->
-    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Service Details</h4>
-    <div class="grid grid-cols-2 gap-4">
-      {% call form_select("creating.client_racket_id", "Client Racket", required=true) %}
-        <option value="" disabled>Select a racket</option>
-        {% for r in rackets_for_dropdown %}
-        <option value="{{ r.id }}">{{ r.label }}</option>
-        {% endfor %}
-      {% endcall %}
-      {% call form_select("creating.service_type", "Service Type", required=true) %}
-        <option value="stringing">Stringing</option>
-        <option value="repair">Repair</option>
-        <option value="other">Other</option>
-      {% endcall %}
-      {{ form_input("creating.service_cost", "Service Cost (€)", type="number", required=true, attrs='step="0.01" min="0"') }}
-      {{ form_input("creating.service_date", "Service Date", type="date") }}
+  {% call modal_wrapper("createOpen", "closeCreate", "New Maintenance Job", "max-w-4xl") %}
+  <form @submit.prevent="saveCreate()" class="px-6 py-4 space-y-5">
+
+    <!-- Row 1: Service Details | String Configuration -->
+    <div class="grid grid-cols-3 gap-6">
+
+      <!-- Service Details -->
+      <div class="space-y-3">
+        <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b dark:border-gray-700 pb-1">Service Details</h4>
+        {% call form_select("creating.client_racket_id", "Client Racket", required=true) %}
+          <option value="" disabled>Select a racket</option>
+          <template x-for="r in rackets" :key="r.id">
+            <option :value="r.id" x-text="r.label"></option>
+          </template>
+        {% endcall %}
+        {% call form_select("creating.service_type", "Service Type", required=true) %}
+          <option value="stringing">Stringing</option>
+          <option value="repair">Repair</option>
+          <option value="other">Other</option>
+        {% endcall %}
+        <div class="grid grid-cols-2 gap-4">
+          {{ form_input("creating.service_cost", "Service Cost (€)", type="number", required=true, attrs='step="0.01" min="0"') }}
+          {{ form_input("creating.service_date", "Service Date", type="date") }}
+        </div>
+      </div>
+
+      <!-- String Configuration -->
+      <div class="space-y-3">
+        <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b dark:border-gray-700 pb-1">String Configuration</h4>
+        {% call form_select("creating.main_string_id", "Main String") %}
+          <option value="">None</option>
+          <template x-for="p in strings" :key="p.id">
+            <option :value="p.id" x-text="p.label"></option>
+          </template>
+        {% endcall %}
+        {% call form_select("creating.cross_string_id", "Cross String") %}
+          <option value="">None</option>
+          <template x-for="p in strings" :key="p.id">
+            <option :value="p.id" x-text="p.label"></option>
+          </template>
+        {% endcall %}
+        <div class="grid grid-cols-2 gap-4">
+          {{ form_input("creating.main_tension_kg", "Main Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
+          {{ form_input("creating.cross_tension_kg", "Cross Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
+        </div>
+        {{ form_input("creating.string_pattern", "String Pattern", attrs='placeholder="e.g. 16x19"') }}
+      </div>
+
+      <!--Grip & Accessories -->
+      <div class="space-y-3">
+        <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b dark:border-gray-700 pb-1 mb-3">Grip &amp; Accessories</h4>
+
+          {% call form_select("creating.base_grip_id", "Base Grip") %}
+            <option value="">None</option>
+            <template x-for="p in products" :key="p.id">
+              <option :value="p.id" x-text="p.label"></option>
+            </template>
+          {% endcall %}
+          {% call form_select("creating.overgrip_id", "Overgrip") %}
+            <option value="">None</option>
+            <template x-for="p in products" :key="p.id">
+              <option :value="p.id" x-text="p.label"></option>
+            </template>
+          {% endcall %}
+          {{ form_input("creating.number_of_overgrips", "# Overgrips", type="number", attrs='min="0" max="10"') }}
+          {% call form_select("creating.dampener_id", "Dampener") %}
+            <option value="">None</option>
+            <template x-for="p in products" :key="p.id">
+              <option :value="p.id" x-text="p.label"></option>
+            </template>
+          {% endcall %}
+          {{ form_input("creating.dampener_position", "Dampener Position", attrs='placeholder="e.g. center"') }}
+          {{ form_input("creating.duration_minutes", "Duration (min)", type="number", attrs='min="0"') }}
+      </div>
     </div>
 
-    <!-- String Configuration -->
-    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide pt-2">String Configuration</h4>
-    <div class="grid grid-cols-2 gap-4">
-      {% call form_select("creating.main_string_id", "Main String") %}
-        <option value="">None</option>
-        {% for p in products_for_dropdown %}
-        <option value="{{ p.id }}">{{ p.label }}</option>
-        {% endfor %}
-      {% endcall %}
-      {% call form_select("creating.cross_string_id", "Cross String") %}
-        <option value="">None</option>
-        {% for p in products_for_dropdown %}
-        <option value="{{ p.id }}">{{ p.label }}</option>
-        {% endfor %}
-      {% endcall %}
-      {{ form_input("creating.main_tension_kg", "Main Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
-      {{ form_input("creating.cross_tension_kg", "Cross Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
-      {{ form_input("creating.string_pattern", "String Pattern", attrs='placeholder="e.g. 16x19"') }}
+    <!-- Row 3: Notes + extras -->
+    <div class="grid grid-cols-2 gap-4 items-start">
+      {{ form_textarea("creating.notes", "Notes") }}
+      <div class="space-y-3">
+        {{ form_input("creating.next_service_due_date", "Next Service Due", type="date") }}
+        {{ form_checkbox("creating.is_warranty_service", "Warranty Service", "create-warranty") }}
+      </div>
     </div>
 
-    <!-- Grip & Accessories -->
-    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide pt-2">Grip & Accessories</h4>
-    <div class="grid grid-cols-2 gap-4">
-      {% call form_select("creating.base_grip_id", "Base Grip") %}
-        <option value="">None</option>
-        {% for p in products_for_dropdown %}
-        <option value="{{ p.id }}">{{ p.label }}</option>
-        {% endfor %}
-      {% endcall %}
-      {% call form_select("creating.overgrip_id", "Overgrip") %}
-        <option value="">None</option>
-        {% for p in products_for_dropdown %}
-        <option value="{{ p.id }}">{{ p.label }}</option>
-        {% endfor %}
-      {% endcall %}
-      {{ form_input("creating.number_of_overgrips", "Number of Overgrips", type="number", attrs='min="0" max="10"') }}
-      {% call form_select("creating.dampener_id", "Dampener") %}
-        <option value="">None</option>
-        {% for p in products_for_dropdown %}
-        <option value="{{ p.id }}">{{ p.label }}</option>
-        {% endfor %}
-      {% endcall %}
-      {{ form_input("creating.dampener_position", "Dampener Position", attrs='placeholder="e.g. center, bottom"') }}
-      {{ form_input("creating.duration_minutes", "Duration (min)", type="number", attrs='min="0"') }}
-    </div>
-
-    <!-- Other -->
-    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide pt-2">Other</h4>
-    <div class="grid grid-cols-2 gap-4">
-      {{ form_input("creating.next_service_due_date", "Next Service Due", type="date") }}
-    </div>
-    {{ form_textarea("creating.notes", "Notes") }}
-    {{ form_checkbox("creating.is_warranty_service", "Warranty Service", "create-warranty") }}
     {{ modal_buttons("closeCreate", "Create Job") }}
   </form>
   {% endcall %}
 
   <!-- EDIT MODAL -->
-  {% call modal_wrapper("editOpen", "closeEdit", "Edit Maintenance Job") %}
-  <form @submit.prevent="saveEdit()" class="px-6 py-4 space-y-4">
+  {% call modal_wrapper("editOpen", "closeEdit", "Edit Maintenance Job", "max-w-4xl") %}
+  <form @submit.prevent="saveEdit()" class="px-6 py-4 space-y-5">
+
     <!-- Racket (read-only) -->
     <div>
-      <label class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1">Client & Racket</label>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1">Client &amp; Racket</label>
       <p class="w-full px-3 py-2 text-sm text-gray-500 bg-gray-100 border rounded-md dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600"
         x-text="editing.client_name + ' — ' + editing.racket_info"></p>
     </div>
 
-    <!-- Core -->
-    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide">Service Details</h4>
-    <div class="grid grid-cols-2 gap-4">
-      {% call form_select("editing.service_type", "Service Type", required=true) %}
-        <option value="stringing">Stringing</option>
-        <option value="repair">Repair</option>
-        <option value="other">Other</option>
-      {% endcall %}
-      {{ form_input("editing.service_cost", "Service Cost (€)", type="number", required=true, attrs='step="0.01" min="0"') }}
+    <!-- All 3 sections side by side -->
+    <div class="grid grid-cols-3 gap-6">
+
+      <!-- Service Details -->
+      <div class="space-y-3">
+        <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b dark:border-gray-700 pb-1">Service Details</h4>
+        {% call form_select("editing.service_type", "Service Type", required=true) %}
+          <option value="stringing">Stringing</option>
+          <option value="repair">Repair</option>
+          <option value="other">Other</option>
+        {% endcall %}
+        {{ form_input("editing.service_cost", "Service Cost (€)", type="number", required=true, attrs='step="0.01" min="0"') }}
+      </div>
+
+      <!-- String Configuration -->
+      <div class="space-y-3">
+        <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b dark:border-gray-700 pb-1">String Configuration</h4>
+        {% call form_select("editing.main_string_id", "Main String") %}
+          <option value="">None</option>
+          <template x-for="p in strings" :key="p.id">
+            <option :value="p.id" x-text="p.label"></option>
+          </template>
+        {% endcall %}
+        {% call form_select("editing.cross_string_id", "Cross String") %}
+          <option value="">None</option>
+          <template x-for="p in strings" :key="p.id">
+            <option :value="p.id" x-text="p.label"></option>
+          </template>
+        {% endcall %}
+        <div class="grid grid-cols-2 gap-4">
+          {{ form_input("editing.main_tension_kg", "Main Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
+          {{ form_input("editing.cross_tension_kg", "Cross Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
+        </div>
+        {{ form_input("editing.string_pattern", "String Pattern", attrs='placeholder="e.g. 16x19"') }}
+      </div>
+
+      <!-- Grip & Accessories -->
+      <div class="space-y-3">
+        <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b dark:border-gray-700 pb-1">Grip &amp; Accessories</h4>
+        {% call form_select("editing.base_grip_id", "Base Grip") %}
+          <option value="">None</option>
+          <template x-for="p in products" :key="p.id">
+            <option :value="p.id" x-text="p.label"></option>
+          </template>
+        {% endcall %}
+        {% call form_select("editing.overgrip_id", "Overgrip") %}
+          <option value="">None</option>
+          <template x-for="p in products" :key="p.id">
+            <option :value="p.id" x-text="p.label"></option>
+          </template>
+        {% endcall %}
+        {{ form_input("editing.number_of_overgrips", "# Overgrips", type="number", attrs='min="0" max="10"') }}
+        {% call form_select("editing.dampener_id", "Dampener") %}
+          <option value="">None</option>
+          <template x-for="p in products" :key="p.id">
+            <option :value="p.id" x-text="p.label"></option>
+          </template>
+        {% endcall %}
+        {{ form_input("editing.dampener_position", "Dampener Position", attrs='placeholder="e.g. center"') }}
+        {{ form_input("editing.duration_minutes", "Duration (min)", type="number", attrs='min="0"') }}
+      </div>
     </div>
 
-    <!-- String Configuration -->
-    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide pt-2">String Configuration</h4>
-    <div class="grid grid-cols-2 gap-4">
-      {% call form_select("editing.main_string_id", "Main String") %}
-        <option value="">None</option>
-        {% for p in products_for_dropdown %}
-        <option value="{{ p.id }}">{{ p.label }}</option>
-        {% endfor %}
-      {% endcall %}
-      {% call form_select("editing.cross_string_id", "Cross String") %}
-        <option value="">None</option>
-        {% for p in products_for_dropdown %}
-        <option value="{{ p.id }}">{{ p.label }}</option>
-        {% endfor %}
-      {% endcall %}
-      {{ form_input("editing.main_tension_kg", "Main Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
-      {{ form_input("editing.cross_tension_kg", "Cross Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
-      {{ form_input("editing.string_pattern", "String Pattern", attrs='placeholder="e.g. 16x19"') }}
+    <!-- Row 3: Notes + extras -->
+    <div class="grid grid-cols-2 gap-4 items-start">
+      {{ form_textarea("editing.notes", "Notes") }}
+      <div class="space-y-3">
+        {{ form_input("editing.next_service_due_date", "Next Service Due", type="date") }}
+        {{ form_checkbox("editing.is_warranty_service", "Warranty Service", "edit-warranty") }}
+      </div>
     </div>
 
-    <!-- Grip & Accessories -->
-    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide pt-2">Grip & Accessories</h4>
-    <div class="grid grid-cols-2 gap-4">
-      {% call form_select("editing.base_grip_id", "Base Grip") %}
-        <option value="">None</option>
-        {% for p in products_for_dropdown %}
-        <option value="{{ p.id }}">{{ p.label }}</option>
-        {% endfor %}
-      {% endcall %}
-      {% call form_select("editing.overgrip_id", "Overgrip") %}
-        <option value="">None</option>
-        {% for p in products_for_dropdown %}
-        <option value="{{ p.id }}">{{ p.label }}</option>
-        {% endfor %}
-      {% endcall %}
-      {{ form_input("editing.number_of_overgrips", "Number of Overgrips", type="number", attrs='min="0" max="10"') }}
-      {% call form_select("editing.dampener_id", "Dampener") %}
-        <option value="">None</option>
-        {% for p in products_for_dropdown %}
-        <option value="{{ p.id }}">{{ p.label }}</option>
-        {% endfor %}
-      {% endcall %}
-      {{ form_input("editing.dampener_position", "Dampener Position", attrs='placeholder="e.g. center, bottom"') }}
-      {{ form_input("editing.duration_minutes", "Duration (min)", type="number", attrs='min="0"') }}
-    </div>
-
-    <!-- Other -->
-    <h4 class="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wide pt-2">Other</h4>
-    <div class="grid grid-cols-2 gap-4">
-      {{ form_input("editing.next_service_due_date", "Next Service Due", type="date") }}
-    </div>
-    {{ form_textarea("editing.notes", "Notes") }}
-    {{ form_checkbox("editing.is_warranty_service", "Warranty Service", "edit-warranty") }}
     {{ modal_buttons("closeEdit", "Save Changes") }}
   </form>
   {% endcall %}
 
   <!-- DELETE CONFIRM (hard delete) -->
   {{ delete_confirm("deleteOpen", "closeDelete", "confirmDelete", "Delete Maintenance Record", "This will permanently delete this maintenance record. This action cannot be undone. Are you sure?", "Delete") }}
+
+  {{ toast() }}
 
 </div>
 {% endblock %}

@@ -1,5 +1,5 @@
 {% extends "layout.html" %}
-{% from "macros/crud.html" import search_bar, action_buttons, modal_wrapper, delete_confirm, add_button, form_input, form_textarea, form_checkbox, modal_buttons, form_select %}
+{% from "macros/crud.html" import search_bar, action_buttons, modal_wrapper, delete_confirm, add_button, form_input, form_textarea, form_checkbox, modal_buttons, form_select, toast %}
 
 {% block title %}Products - Tennis Shop{% endblock %}
 {% block page_title %}Products{% endblock %}
@@ -18,6 +18,15 @@ function productPageData() {
     deleteOpen: false,
     editing: {},
     deletingId: null,
+    toastVisible: false,
+    toastMessage: '',
+    toastType: 'success',
+    showToast(message, type = 'success') {
+      this.toastMessage = message;
+      this.toastType = type;
+      this.toastVisible = true;
+      setTimeout(() => { this.toastVisible = false; }, 4000);
+    },
     init() {
       this.$watch('search', (q) => {
         if (!q) { this.filtered = this.allProducts; return; }
@@ -50,7 +59,8 @@ function productPageData() {
           category_id: this.creating.category_id,
         })
       });
-      if (res.ok) { window.location.reload(); } else { alert('Create failed. Please check required fields.'); }
+      if (res.ok) { this.closeCreate(); this.showToast('Product created successfully.'); setTimeout(() => window.location.reload(), 1500); }
+      else { const err = await res.json().catch(() => null); this.showToast(err?.detail || 'Create failed. Please check required fields.', 'error'); }
     },
     openEdit(p) { this.editing = Object.assign({}, p); this.editOpen = true; },
     closeEdit() { this.editOpen = false; },
@@ -73,11 +83,13 @@ function productPageData() {
           is_active: this.editing.is_active,
         })
       });
-      if (res.ok) { window.location.reload(); } else { alert('Update failed. Please try again.'); }
+      if (res.ok) { this.closeEdit(); this.showToast('Product updated successfully.'); setTimeout(() => window.location.reload(), 1500); }
+      else { const err = await res.json().catch(() => null); this.showToast(err?.detail || 'Update failed. Please try again.', 'error'); }
     },
     async confirmDelete() {
       const res = await fetch('/api/v1/products/' + this.deletingId, { method: 'DELETE' });
-      if (res.ok) { window.location.reload(); } else { alert('Delete failed. Please try again.'); }
+      if (res.ok) { this.closeDelete(); this.showToast('Product deactivated successfully.'); setTimeout(() => window.location.reload(), 1500); }
+      else { const err = await res.json().catch(() => null); this.showToast(err?.detail || 'Delete failed. Please try again.', 'error'); }
     }
   };
 }
@@ -182,6 +194,8 @@ function productPageData() {
 
   <!-- DELETE CONFIRM -->
   {{ delete_confirm("deleteOpen", "closeDelete", "confirmDelete", "Deactivate Product", "This will mark the product as inactive. Data is kept but the product won't appear in listings. Are you sure?", "Deactivate") }}
+
+  {{ toast() }}
 
 </div>
 {% endblock %}

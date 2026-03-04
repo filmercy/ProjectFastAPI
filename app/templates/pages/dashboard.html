@@ -4,6 +4,16 @@
 {% block page_title %}Dashboard{% endblock %}
 
 {% block content %}
+<script>
+function dashboardData() {
+  var stats = {{ stats | tojson }};
+  var jobs  = {{ recent_maintenance | tojson }};
+  return { stats: stats, jobs: jobs };
+}
+</script>
+
+<div x-data="dashboardData()">
+
 <h2 class="my-6 text-2xl font-semibold text-gray-700 dark:text-gray-200">Dashboard</h2>
 
 <!-- Stats cards -->
@@ -14,7 +24,7 @@
     </div>
     <div>
       <p class="mb-2 text-sm font-medium text-gray-600 dark:text-gray-400">Total Clients</p>
-      <p class="text-lg font-semibold text-gray-700 dark:text-gray-200">{{ stats.total_clients }}</p>
+      <p class="text-lg font-semibold text-gray-700 dark:text-gray-200" x-text="stats.total_clients"></p>
     </div>
   </div>
   <div class="flex items-center p-4 bg-white rounded-lg shadow-xs dark:bg-gray-800">
@@ -23,7 +33,7 @@
     </div>
     <div>
       <p class="mb-2 text-sm font-medium text-gray-600 dark:text-gray-400">Total Products</p>
-      <p class="text-lg font-semibold text-gray-700 dark:text-gray-200">{{ stats.total_products }}</p>
+      <p class="text-lg font-semibold text-gray-700 dark:text-gray-200" x-text="stats.total_products"></p>
     </div>
   </div>
   <div class="flex items-center p-4 bg-white rounded-lg shadow-xs dark:bg-gray-800">
@@ -32,7 +42,7 @@
     </div>
     <div>
       <p class="mb-2 text-sm font-medium text-gray-600 dark:text-gray-400">Total Services</p>
-      <p class="text-lg font-semibold text-gray-700 dark:text-gray-200">{{ stats.total_services }}</p>
+      <p class="text-lg font-semibold text-gray-700 dark:text-gray-200" x-text="stats.total_services"></p>
     </div>
   </div>
   <div class="flex items-center p-4 bg-white rounded-lg shadow-xs dark:bg-gray-800">
@@ -41,7 +51,7 @@
     </div>
     <div>
       <p class="mb-2 text-sm font-medium text-gray-600 dark:text-gray-400">Categories</p>
-      <p class="text-lg font-semibold text-gray-700 dark:text-gray-200">{{ stats.total_categories }}</p>
+      <p class="text-lg font-semibold text-gray-700 dark:text-gray-200" x-text="stats.total_categories"></p>
     </div>
   </div>
 </div>
@@ -57,30 +67,44 @@
           <th class="px-4 py-3">Racket</th>
           <th class="px-4 py-3">Type</th>
           <th class="px-4 py-3">Date</th>
+          <th class="px-4 py-3">Actions</th>
         </tr>
       </thead>
       <tbody class="bg-white divide-y dark:divide-gray-700 dark:bg-gray-800">
-        {% for job in recent_maintenance %}
-        <tr class="text-gray-700 dark:text-gray-400">
-          <td class="px-4 py-3 text-sm">{{ job.client_name }}</td>
-          <td class="px-4 py-3 text-sm">{{ job.racket_info }}</td>
-          <td class="px-4 py-3 text-xs">
-            <span class="px-2 py-1 font-semibold leading-tight rounded-full
-              {% if job.service_type == 'stringing' %}text-blue-700 bg-blue-100 dark:bg-blue-700 dark:text-blue-100
-              {% elif job.service_type == 'repair' %}text-orange-700 bg-orange-100 dark:bg-orange-700 dark:text-orange-100
-              {% else %}text-gray-700 bg-gray-100 dark:bg-gray-700 dark:text-gray-100{% endif %}">
-              {{ job.service_type }}
-            </span>
-          </td>
-          <td class="px-4 py-3 text-sm">{{ job.service_date }}</td>
+        <template x-for="(j, index) in jobs" :key="index">
+          <tr class="text-gray-700 dark:text-gray-400">
+            <td class="px-4 py-3 text-sm" x-text="j.client_name"></td>
+            <td class="px-4 py-3 text-sm" x-text="j.racket_info"></td>
+            <td class="px-4 py-3 text-xs">
+              <span class="px-2 py-1 font-semibold leading-tight rounded-full"
+                :class="{
+                  'text-white bg-purple-600 dark:bg-purple-700': j.service_type === 'stringing',
+                  'text-white bg-purple-500 dark:bg-purple-600': j.service_type === 'repair',
+                  'text-white bg-purple-400 dark:bg-purple-500': j.service_type === 'other'
+                }"
+                x-text="j.service_type">
+              </span>
+            </td>
+            <td class="px-4 py-3 text-sm" x-text="j.service_date"></td>
+            <td class="px-4 py-3 text-sm">
+              <a :href="j.client_id ? '/clients/' + j.client_id : '#'"
+                class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-blue-600 rounded-lg dark:text-gray-400 focus:outline-none focus:shadow-outline-gray"
+                aria-label="View">
+                <svg class="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"></path>
+                  <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"></path>
+                </svg>
+              </a>
+            </td>
+          </tr>
+        </template>
+        <tr x-show="jobs.length === 0" class="text-gray-700 dark:text-gray-400">
+          <td class="px-4 py-3 text-sm" colspan="5">No maintenance jobs yet.</td>
         </tr>
-        {% else %}
-        <tr class="text-gray-700 dark:text-gray-400">
-          <td class="px-4 py-3 text-sm" colspan="4">No maintenance jobs yet.</td>
-        </tr>
-        {% endfor %}
       </tbody>
     </table>
   </div>
+</div>
+
 </div>
 {% endblock %}

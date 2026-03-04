@@ -38,7 +38,9 @@
       "Bash(git config:*)",
       "Bash(cmd /c \"taskkill /PID 8020 /F\")",
       "Bash(powershell:*)",
-      "Bash(ls e:/apps/ProjectFastAPI/frontend/public/*.html)"
+      "Bash(ls e:/apps/ProjectFastAPI/frontend/public/*.html)",
+      "Bash(npm run build)",
+      "Bash(npm install)"
     ]
   }
 }

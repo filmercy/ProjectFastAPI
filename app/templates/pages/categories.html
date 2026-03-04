@@ -4,25 +4,35 @@
 {% block page_title %}Categories{% endblock %}
 
 {% block content %}
-<div class="flex items-center justify-between my-6">
-  <h2 class="text-2xl font-semibold text-gray-700 dark:text-gray-200">Categories</h2>
-</div>
+<script>
+function categoriesData() {
+  var categories = {{ categories | tojson }};
+  return { categories: categories };
+}
+</script>
 
-<div class="grid gap-6 mb-8 md:grid-cols-2 xl:grid-cols-3">
-  {% for category in categories %}
-  <div class="p-4 bg-white rounded-lg shadow-xs dark:bg-gray-800">
-    <div class="flex items-center">
-      <div class="p-3 mr-4 text-purple-500 bg-purple-100 rounded-full dark:text-purple-100 dark:bg-purple-500">
-        <svg class="w-5 h-5" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" stroke="currentColor"><path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"></path></svg>
-      </div>
-      <div>
-        <p class="font-semibold text-gray-700 dark:text-gray-200">{{ category.name }}</p>
-        <p class="text-sm text-gray-600 dark:text-gray-400">{{ category.description or 'No description' }}</p>
-      </div>
-    </div>
+<div x-data="categoriesData()">
+
+  <div class="flex items-center justify-between my-6">
+    <h2 class="text-2xl font-semibold text-gray-700 dark:text-gray-200">Categories</h2>
   </div>
-  {% else %}
-  <p class="text-gray-600 dark:text-gray-400">No categories found.</p>
-  {% endfor %}
+
+  <div class="grid gap-6 mb-8 md:grid-cols-2 xl:grid-cols-3">
+    <template x-for="cat in categories" :key="cat.name">
+      <div class="p-4 bg-white rounded-lg shadow-xs dark:bg-gray-800">
+        <div class="flex items-center">
+          <div class="p-3 mr-4 text-purple-500 bg-purple-100 rounded-full dark:text-purple-100 dark:bg-purple-500">
+            <svg class="w-5 h-5" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24" stroke="currentColor"><path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"></path></svg>
+          </div>
+          <div>
+            <p class="font-semibold text-gray-700 dark:text-gray-200" x-text="cat.name"></p>
+            <p class="text-sm text-gray-600 dark:text-gray-400" x-text="cat.description || 'No description'"></p>
+          </div>
+        </div>
+      </div>
+    </template>
+    <p x-show="categories.length === 0" class="text-gray-600 dark:text-gray-400">No categories found.</p>
+  </div>
+
 </div>
 {% endblock %}

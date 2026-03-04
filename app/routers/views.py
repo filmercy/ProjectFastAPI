@@ -1,5 +1,5 @@
 """HTML view routes — renders Jinja2 templates for the dashboard UI."""
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -15,7 +15,7 @@ router = APIRouter(tags=["Views"])
 templates = Jinja2Templates(directory="app/templates")
 
 
-@router.get("/")
+@router.get("/dashboard")
 async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     total_clients = (await db.execute(select(func.count(Client.id)))).scalar()
     total_products = (await db.execute(select(func.count(Product.id)))).scalar()
@@ -35,6 +35,7 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
             select(Client).where(Client.id == racket.client_id)
         )).scalar_one_or_none() if racket else None
         recent_maintenance.append({
+            "client_id": client.id if client else None,
             "client_name": f"{client.first_name} {client.last_name}" if client else "Unknown",
             "racket_info": f"{racket.brand} {racket.model}" if racket else "Unknown",
             "service_type": record.service_type,
@@ -84,9 +85,56 @@ async def clients_page(request: Request, db: AsyncSession = Depends(get_db)):
     })
 
 
+@router.get("/clients/{client_id}")
+async def client_detail(client_id: str, request: Request, db: AsyncSession = Depends(get_db)):
+    client = (await db.execute(
+        select(Client).where(Client.id == client_id)
+    )).scalar_one_or_none()
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    rackets = (await db.execute(
+        select(ClientRacket).where(ClientRacket.client_id == client_id).order_by(ClientRacket.brand)
+    )).scalars().all()
+
+    return templates.TemplateResponse("pages/client_detail.html", {
+        "request": request,
+        "active_page": "clients",
+        "client": {
+            "id": client.id,
+            "first_name": client.first_name,
+            "last_name": client.last_name,
+            "email": client.email,
+            "phone_number": client.phone_number,
+            "date_of_birth": client.date_of_birth.isoformat() if client.date_of_birth else None,
+            "address_line1": client.address_line1,
+            "address_line2": client.address_line2,
+            "city": client.city,
+            "postal_code": client.postal_code,
+            "country": client.country,
+            "notes": client.notes,
+            "is_active": client.is_active,
+            "created_at": client.created_at.strftime("%Y-%m-%d") if client.created_at else "-",
+        },
+        "rackets": [
+            {
+                "id": r.id,
+                "brand": r.brand,
+                "model": r.model,
+                "grip_size": r.grip_size,
+                "custom_name": r.custom_name,
+                "purchase_date": r.purchase_date.isoformat() if r.purchase_date else None,
+                "notes": r.notes,
+                "is_active": r.is_active,
+            }
+            for r in rackets
+        ],
+    })
+
+
 @router.get("/products")
 async def products_page(request: Request, db: AsyncSession = Depends(get_db)):
-    products = (await db.execute(select(Product).order_by(Product.name))).scalars().all()
+    products = (await db.execute(select(Product).where(Product.is_active == True).order_by(Product.name))).scalars().all()
     cats = (await db.execute(select(ProductCategory).order_by(ProductCategory.name))).scalars().all()
     categories_map = {c.id: c.name for c in cats}
     return templates.TemplateResponse("pages/products.html", {
@@ -115,7 +163,7 @@ async def products_page(request: Request, db: AsyncSession = Depends(get_db)):
 
 @router.get("/categories")
 async def categories_page(request: Request, db: AsyncSession = Depends(get_db)):
-    categories = (await db.execute(select(ProductCategory).order_by(ProductCategory.name))).scalars().all()
+    categories = (await db.execute(select(ProductCategory).where(ProductCategory.is_active == True).order_by(ProductCategory.name))).scalars().all()
     return templates.TemplateResponse("pages/categories.html", {
         "request": request,
         "active_page": "categories",
@@ -134,6 +182,15 @@ async def maintenance_page(request: Request, db: AsyncSession = Depends(get_db))
         select(Product).where(Product.is_active == True).order_by(Product.name)
     )).scalars().all()
     products_map = {p.id: p.name for p in all_products}
+
+    strings_category_id = (await db.execute(
+        select(ProductCategory.id).where(ProductCategory.name.ilike("%string%"))
+    )).scalar_one_or_none()
+    strings_for_dropdown = [
+        {"id": p.id, "label": f"{p.brand} — {p.name}"}
+        for p in all_products if p.category_id == strings_category_id
+    ]
+    
 
     all_rackets = (await db.execute(
         select(ClientRacket).where(ClientRacket.is_active == True).order_by(ClientRacket.brand)
@@ -189,13 +246,16 @@ async def maintenance_page(request: Request, db: AsyncSession = Depends(get_db))
             "service_date": record.service_date.strftime("%Y-%m-%d") if record.service_date else "-",
         })
 
+    all_products_for_dropdown = [
+        {"id": p.id, "label": f"{p.brand} — {p.name}"}
+        for p in all_products
+    ]
+
     return templates.TemplateResponse("pages/maintenance.html", {
         "request": request,
         "active_page": "maintenance",
         "jobs": jobs,
         "rackets_for_dropdown": rackets_for_dropdown,
-        "products_for_dropdown": [
-            {"id": p.id, "label": f"{p.brand} — {p.name}"}
-            for p in all_products
-        ],
+        "strings_for_dropdown": strings_for_dropdown,
+        "products_for_dropdown": all_products_for_dropdown,
     })
