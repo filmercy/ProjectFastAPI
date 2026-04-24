@@ -53,9 +53,9 @@ function maintenancePageData() {
       this.creating = {
         client_racket_id: '', service_type: 'stringing', service_cost: '',
         service_date: '', main_string_id: '', cross_string_id: '',
-        main_tension_kg: '', cross_tension_kg: '', string_pattern: '',
+        main_tension_kg: '', cross_tension_kg: '',
         base_grip_id: '', overgrip_id: '', number_of_overgrips: 1,
-        dampener_id: '', dampener_position: '', duration_minutes: '',
+        duration_minutes: '',
         notes: '', is_warranty_service: false, next_service_due_date: ''
       };
       this.createOpen = true;
@@ -75,12 +75,9 @@ function maintenancePageData() {
           cross_string_id:      d.cross_string_id   || null,
           main_tension_kg:      d.main_tension_kg !== '' ? parseFloat(d.main_tension_kg) : null,
           cross_tension_kg:     d.cross_tension_kg !== '' ? parseFloat(d.cross_tension_kg) : null,
-          string_pattern:       d.string_pattern    || null,
           base_grip_id:         d.base_grip_id      || null,
           overgrip_id:          d.overgrip_id       || null,
           number_of_overgrips:  parseInt(d.number_of_overgrips) || 1,
-          dampener_id:          d.dampener_id       || null,
-          dampener_position:    d.dampener_position || null,
           duration_minutes:     d.duration_minutes !== '' ? parseInt(d.duration_minutes) : null,
           notes:                d.notes             || null,
           is_warranty_service:  d.is_warranty_service,
@@ -104,12 +101,9 @@ function maintenancePageData() {
           cross_string_id:      d.cross_string_id   || null,
           main_tension_kg:      d.main_tension_kg !== null && d.main_tension_kg !== '' ? parseFloat(d.main_tension_kg) : null,
           cross_tension_kg:     d.cross_tension_kg !== null && d.cross_tension_kg !== '' ? parseFloat(d.cross_tension_kg) : null,
-          string_pattern:       d.string_pattern    || null,
           base_grip_id:         d.base_grip_id      || null,
           overgrip_id:          d.overgrip_id       || null,
           number_of_overgrips:  parseInt(d.number_of_overgrips) || 1,
-          dampener_id:          d.dampener_id       || null,
-          dampener_position:    d.dampener_position || null,
           duration_minutes:     d.duration_minutes !== null && d.duration_minutes !== '' ? parseInt(d.duration_minutes) : null,
           notes:                d.notes             || null,
           is_warranty_service:  d.is_warranty_service,
@@ -236,7 +230,6 @@ function maintenancePageData() {
           {{ form_input("creating.main_tension_kg", "Main Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
           {{ form_input("creating.cross_tension_kg", "Cross Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
         </div>
-        {{ form_input("creating.string_pattern", "String Pattern", attrs='placeholder="e.g. 16x19"') }}
       </div>
 
       <!--Grip & Accessories -->
@@ -256,13 +249,6 @@ function maintenancePageData() {
             </template>
           {% endcall %}
           {{ form_input("creating.number_of_overgrips", "# Overgrips", type="number", attrs='min="0" max="10"') }}
-          {% call form_select("creating.dampener_id", "Dampener") %}
-            <option value="">None</option>
-            <template x-for="p in dampeners" :key="p.id">
-              <option :value="p.id" x-text="p.label"></option>
-            </template>
-          {% endcall %}
-          {{ form_input("creating.dampener_position", "Dampener Position", attrs='placeholder="e.g. center"') }}
           {{ form_input("creating.duration_minutes", "Duration (min)", type="number", attrs='min="0"') }}
       </div>
     </div>
@@ -324,7 +310,6 @@ function maintenancePageData() {
           {{ form_input("editing.main_tension_kg", "Main Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
           {{ form_input("editing.cross_tension_kg", "Cross Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
         </div>
-        {{ form_input("editing.string_pattern", "String Pattern", attrs='placeholder="e.g. 16x19"') }}
       </div>
 
       <!-- Grip & Accessories -->
@@ -343,13 +328,6 @@ function maintenancePageData() {
           </template>
         {% endcall %}
         {{ form_input("editing.number_of_overgrips", "# Overgrips", type="number", attrs='min="0" max="10"') }}
-        {% call form_select("editing.dampener_id", "Dampener") %}
-          <option value="">None</option>
-          <template x-for="p in dampeners" :key="p.id">
-            <option :value="p.id" x-text="p.label"></option>
-          </template>
-        {% endcall %}
-        {{ form_input("editing.dampener_position", "Dampener Position", attrs='placeholder="e.g. center"') }}
         {{ form_input("editing.duration_minutes", "Duration (min)", type="number", attrs='min="0"') }}
       </div>
     </div>

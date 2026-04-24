@@ -105,16 +105,22 @@ async def client_detail(client_id: str, request: Request, db: AsyncSession = Dep
             all_products_divided_by_category[p.category_id] = []
         all_products_divided_by_category[p.category_id].append(p)
 
-    strings_category_id = (await db.execute(
-        select(ProductCategory.id).where(ProductCategory.name.ilike("%string%"))
-    )).scalar_one_or_none()
+    all_categories = (await db.execute(select(ProductCategory))).scalars().all()
+    strings_category_ids = {c.id for c in all_categories if "string" in c.name.lower()}
+    base_grips_category_ids = {c.id for c in all_categories if "grip" in c.name.lower() and "over" not in c.name.lower()}
+    overgrips_category_ids = {c.id for c in all_categories if "overgrip" in c.name.lower()}
+
     strings_for_dropdown = [
         {"id": p.id, "label": f"{p.brand} — {p.name}"}
-        for p in all_products if p.category_id == strings_category_id
+        for p in all_products if p.category_id in strings_category_ids
     ]
-    products_for_dropdown = [
+    base_grips_for_dropdown = [
         {"id": p.id, "label": f"{p.brand} — {p.name}"}
-        for p in all_products
+        for p in all_products if p.category_id in base_grips_category_ids
+    ]
+    overgrips_for_dropdown = [
+        {"id": p.id, "label": f"{p.brand} — {p.name}"}
+        for p in all_products if p.category_id in overgrips_category_ids
     ]
 
     return templates.TemplateResponse(request, "pages/client_detail.html", {
@@ -149,7 +155,8 @@ async def client_detail(client_id: str, request: Request, db: AsyncSession = Dep
             for r in rackets
         ],
         "strings_for_dropdown": strings_for_dropdown,
-        "products_for_dropdown": products_for_dropdown,
+        "base_grips_for_dropdown": base_grips_for_dropdown,
+        "overgrips_for_dropdown": overgrips_for_dropdown,
     })
 
 

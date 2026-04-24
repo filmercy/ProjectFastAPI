@@ -9,13 +9,15 @@
 function racketPageData() {
   var rackets  = {{ rackets | tojson }};
   var clientId = {{ client.id | tojson }};
-  var strings  = {{ strings_for_dropdown | tojson }};
-  var products = {{ products_for_dropdown | tojson }};
+  var strings   = {{ strings_for_dropdown | tojson }};
+  var baseGrips = {{ base_grips_for_dropdown | tojson }};
+  var overgrips = {{ overgrips_for_dropdown | tojson }};
   return {
     clientId: clientId,
     allRackets: rackets,
     strings: strings,
-    products: products,
+    baseGrips: baseGrips,
+    overgrips: overgrips,
     createOpen: false,
     creating: {},
     editOpen: false,
@@ -55,9 +57,9 @@ function racketPageData() {
         client_racket_id: this.maintRacket.id,
         service_type: 'stringing', service_cost: '',
         service_date: '', main_string_id: '', cross_string_id: '',
-        main_tension_kg: '', cross_tension_kg: '', string_pattern: '',
+        main_tension_kg: '', cross_tension_kg: '',
         base_grip_id: '', overgrip_id: '', number_of_overgrips: 1,
-        dampener_id: '', dampener_position: '', duration_minutes: '',
+        duration_minutes: '',
         notes: '', is_warranty_service: false, next_service_due_date: ''
       };
       this.addMaintOpen = true;
@@ -77,12 +79,9 @@ function racketPageData() {
           cross_string_id:      d.cross_string_id   || null,
           main_tension_kg:      d.main_tension_kg !== '' ? parseFloat(d.main_tension_kg) : null,
           cross_tension_kg:     d.cross_tension_kg !== '' ? parseFloat(d.cross_tension_kg) : null,
-          string_pattern:       d.string_pattern    || null,
           base_grip_id:         d.base_grip_id      || null,
           overgrip_id:          d.overgrip_id       || null,
           number_of_overgrips:  parseInt(d.number_of_overgrips) || 1,
-          dampener_id:          d.dampener_id       || null,
-          dampener_position:    d.dampener_position || null,
           duration_minutes:     d.duration_minutes !== '' ? parseInt(d.duration_minutes) : null,
           notes:                d.notes             || null,
           is_warranty_service:  d.is_warranty_service,
@@ -447,7 +446,6 @@ function racketPageData() {
           {{ form_input("addingMaint.main_tension_kg", "Main Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
           {{ form_input("addingMaint.cross_tension_kg", "Cross Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
         </div>
-        {{ form_input("addingMaint.string_pattern", "String Pattern", attrs='placeholder="e.g. 16x19"') }}
       </div>
 
       <!-- Grip & Accessories -->
@@ -455,24 +453,17 @@ function racketPageData() {
         <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b dark:border-gray-700 pb-1">Grip &amp; Accessories</h4>
         {% call form_select("addingMaint.base_grip_id", "Base Grip") %}
           <option value="">None</option>
-          <template x-for="p in products" :key="p.id">
+          <template x-for="p in baseGrips" :key="p.id">
             <option :value="p.id" x-text="p.label"></option>
           </template>
         {% endcall %}
         {% call form_select("addingMaint.overgrip_id", "Overgrip") %}
           <option value="">None</option>
-          <template x-for="p in products" :key="p.id">
+          <template x-for="p in overgrips" :key="p.id">
             <option :value="p.id" x-text="p.label"></option>
           </template>
         {% endcall %}
         {{ form_input("addingMaint.number_of_overgrips", "# Overgrips", type="number", attrs='min="0" max="10"') }}
-        {% call form_select("addingMaint.dampener_id", "Dampener") %}
-          <option value="">None</option>
-          <template x-for="p in products" :key="p.id">
-            <option :value="p.id" x-text="p.label"></option>
-          </template>
-        {% endcall %}
-        {{ form_input("addingMaint.dampener_position", "Dampener Position", attrs='placeholder="e.g. center"') }}
       </div>
     </div>
 
