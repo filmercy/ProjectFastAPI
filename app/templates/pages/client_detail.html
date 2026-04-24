@@ -1,5 +1,5 @@
 {% extends "layout.html" %}
-{% from "macros/crud.html" import modal_wrapper, delete_confirm, add_button, form_input, form_textarea, form_checkbox, modal_buttons, toast %}
+{% from "macros/crud.html" import modal_wrapper, delete_confirm, add_button, form_input, form_textarea, form_checkbox, modal_buttons, form_select, toast %}
 
 {% block title %}{{ client.first_name }} {{ client.last_name }} - Tennis Shop{% endblock %}
 {% block page_title %}Client Detail{% endblock %}
@@ -7,17 +7,29 @@
 {% block content %}
 <script>
 function racketPageData() {
-  var rackets = {{ rackets | tojson }};
+  var rackets  = {{ rackets | tojson }};
   var clientId = {{ client.id | tojson }};
+  var strings  = {{ strings_for_dropdown | tojson }};
+  var products = {{ products_for_dropdown | tojson }};
   return {
     clientId: clientId,
     allRackets: rackets,
+    strings: strings,
+    products: products,
     createOpen: false,
     creating: {},
     editOpen: false,
     editing: {},
     deleteOpen: false,
     deletingId: null,
+    // Maintenance history
+    maintOpen: false,
+    maintRacket: null,
+    maintJobs: [],
+    maintLoading: false,
+    // Add maintenance
+    addMaintOpen: false,
+    addingMaint: {},
     toastVisible: false,
     toastMessage: '',
     toastType: 'success',
@@ -26,6 +38,69 @@ function racketPageData() {
       this.toastType = type;
       this.toastVisible = true;
       setTimeout(() => { this.toastVisible = false; }, 4000);
+    },
+    openMaint(r) {
+      this.maintRacket = r;
+      this.maintJobs = [];
+      this.maintOpen = true;
+      this.maintLoading = true;
+      fetch('/api/v1/maintenance/?client_racket_id=' + r.id + '&limit=100')
+        .then(res => res.json())
+        .then(data => { this.maintJobs = data.items || []; })
+        .finally(() => { this.maintLoading = false; });
+    },
+    closeMaint() { this.maintOpen = false; this.maintRacket = null; },
+    openAddMaint() {
+      this.addingMaint = {
+        client_racket_id: this.maintRacket.id,
+        service_type: 'stringing', service_cost: '',
+        service_date: '', main_string_id: '', cross_string_id: '',
+        main_tension_kg: '', cross_tension_kg: '', string_pattern: '',
+        base_grip_id: '', overgrip_id: '', number_of_overgrips: 1,
+        dampener_id: '', dampener_position: '', duration_minutes: '',
+        notes: '', is_warranty_service: false, next_service_due_date: ''
+      };
+      this.addMaintOpen = true;
+    },
+    closeAddMaint() { this.addMaintOpen = false; },
+    async saveAddMaint() {
+      const d = this.addingMaint;
+      const res = await fetch('/api/v1/maintenance/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_racket_id:     d.client_racket_id,
+          service_type:         d.service_type,
+          service_cost:         parseFloat(d.service_cost) || 0,
+          service_date:         d.service_date || null,
+          main_string_id:       d.main_string_id    || null,
+          cross_string_id:      d.cross_string_id   || null,
+          main_tension_kg:      d.main_tension_kg !== '' ? parseFloat(d.main_tension_kg) : null,
+          cross_tension_kg:     d.cross_tension_kg !== '' ? parseFloat(d.cross_tension_kg) : null,
+          string_pattern:       d.string_pattern    || null,
+          base_grip_id:         d.base_grip_id      || null,
+          overgrip_id:          d.overgrip_id       || null,
+          number_of_overgrips:  parseInt(d.number_of_overgrips) || 1,
+          dampener_id:          d.dampener_id       || null,
+          dampener_position:    d.dampener_position || null,
+          duration_minutes:     d.duration_minutes !== '' ? parseInt(d.duration_minutes) : null,
+          notes:                d.notes             || null,
+          is_warranty_service:  d.is_warranty_service,
+          next_service_due_date: d.next_service_due_date || null,
+        })
+      });
+      if (res.ok) {
+        this.closeAddMaint();
+        this.showToast('Maintenance job added successfully.');
+        this.maintLoading = true;
+        fetch('/api/v1/maintenance/?client_racket_id=' + this.maintRacket.id + '&limit=100')
+          .then(res => res.json())
+          .then(data => { this.maintJobs = data.items || []; })
+          .finally(() => { this.maintLoading = false; });
+      } else {
+        const err = await res.json().catch(() => null);
+        this.showToast(err?.detail || 'Create failed. Check required fields.', 'error');
+      }
     },
     openCreate() {
       this.creating = { brand: '', model: '', grip_size: '', custom_name: '', purchase_date: '', notes: '' };
@@ -199,6 +274,13 @@ function racketPageData() {
               <td class="px-4 py-3">
                 <div class="flex items-center space-x-1 text-sm">
                   <button class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-purple-600 rounded-lg dark:text-gray-400 focus:outline-none"
+                    aria-label="Maintenance history" @click="openMaint(r)">
+                    <svg class="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"></path>
+                      <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"></path>
+                    </svg>
+                  </button>
+                  <button class="flex items-center justify-between px-2 py-2 text-sm font-medium leading-5 text-purple-600 rounded-lg dark:text-gray-400 focus:outline-none"
                     aria-label="Edit" @click="openEdit(r)">
                     <svg class="w-5 h-5" aria-hidden="true" fill="currentColor" viewBox="0 0 20 20">
                       <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path>
@@ -255,6 +337,157 @@ function racketPageData() {
 
   <!-- DELETE CONFIRM -->
   {{ delete_confirm("deleteOpen", "closeDelete", "confirmDelete", "Remove Racket", "This will deactivate the racket. Maintenance history is preserved. Are you sure?", "Remove") }}
+
+  <!-- MAINTENANCE HISTORY MODAL -->
+  {% call modal_wrapper("maintOpen", "closeMaint", "Maintenance History", "max-w-3xl") %}
+  <div class="px-6 py-4">
+
+    <!-- Racket label + Add Job button -->
+    <div class="flex items-center justify-between mb-4">
+      <p class="text-sm text-gray-500 dark:text-gray-400" x-text="maintRacket ? maintRacket.brand + ' ' + maintRacket.model : ''"></p>
+      <button type="button" @click="openAddMaint()"
+        class="flex items-center px-3 py-1.5 text-sm font-medium text-white bg-purple-600 rounded-lg hover:bg-purple-700 focus:outline-none">
+        <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd"></path></svg>
+        Add Job
+      </button>
+    </div>
+
+    <!-- Loading -->
+    <div x-show="maintLoading" class="flex justify-center py-8">
+      <svg class="w-6 h-6 animate-spin text-purple-600" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+      </svg>
+    </div>
+
+    <!-- Jobs table -->
+    <div x-show="!maintLoading" class="w-full overflow-x-auto">
+      <table class="w-full text-sm" x-show="maintJobs.length > 0">
+        <thead>
+          <tr class="text-xs font-semibold tracking-wide text-left text-gray-500 uppercase border-b dark:border-gray-700 bg-gray-50 dark:text-gray-400 dark:bg-gray-800">
+            <th class="px-3 py-2">Date</th>
+            <th class="px-3 py-2">Type</th>
+            <th class="px-3 py-2">String</th>
+            <th class="px-3 py-2">Tension</th>
+            <th class="px-3 py-2">Cost</th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y dark:divide-gray-700 dark:bg-gray-800">
+          <template x-for="j in maintJobs" :key="j.id">
+            <tr class="text-gray-700 dark:text-gray-400">
+              <td class="px-3 py-2" x-text="j.service_date || '-'"></td>
+              <td class="px-3 py-2">
+                <span class="px-2 py-0.5 text-xs font-semibold rounded-full text-white"
+                  :class="{
+                    'bg-purple-600': j.service_type === 'stringing',
+                    'bg-purple-500': j.service_type === 'repair',
+                    'bg-purple-400': j.service_type === 'other'
+                  }"
+                  x-text="j.service_type"></span>
+              </td>
+              <td class="px-3 py-2" x-text="j.string_info || '-'"></td>
+              <td class="px-3 py-2" x-text="j.main_tension_kg != null ? j.main_tension_kg + (j.cross_tension_kg && j.cross_tension_kg !== j.main_tension_kg ? ' / ' + j.cross_tension_kg : '') + ' kg' : '-'"></td>
+              <td class="px-3 py-2" x-text="j.service_cost != null ? '€ ' + j.service_cost.toFixed(2) : '-'"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+      <p x-show="maintJobs.length === 0" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+        No maintenance records yet for this racket.
+      </p>
+    </div>
+  </div>
+  {% endcall %}
+
+  <!-- ADD MAINTENANCE MODAL -->
+  {% call modal_wrapper("addMaintOpen", "closeAddMaint", "Add Maintenance Job", "max-w-4xl") %}
+  <form @submit.prevent="saveAddMaint()" class="px-6 py-4 space-y-5">
+
+    <!-- Racket (read-only) -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-1">Racket</label>
+      <p class="w-full px-3 py-2 text-sm text-gray-500 bg-gray-100 border rounded-md dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600"
+        x-text="maintRacket ? maintRacket.brand + ' ' + maintRacket.model : ''"></p>
+    </div>
+
+    <!-- All 3 sections side by side -->
+    <div class="grid grid-cols-3 gap-6">
+
+      <!-- Service Details -->
+      <div class="space-y-3">
+        <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b dark:border-gray-700 pb-1">Service Details</h4>
+        {% call form_select("addingMaint.service_type", "Service Type", required=true) %}
+          <option value="stringing">Stringing</option>
+          <option value="repair">Repair</option>
+          <option value="other">Other</option>
+        {% endcall %}
+        <div class="grid grid-cols-2 gap-4">
+          {{ form_input("addingMaint.service_cost", "Service Cost (€)", type="number", required=true, attrs='step="0.01" min="0"') }}
+          {{ form_input("addingMaint.service_date", "Service Date", type="date") }}
+        </div>
+        {{ form_input("addingMaint.duration_minutes", "Duration (min)", type="number", attrs='min="0"') }}
+      </div>
+
+      <!-- String Configuration -->
+      <div class="space-y-3">
+        <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b dark:border-gray-700 pb-1">String Configuration</h4>
+        {% call form_select("addingMaint.main_string_id", "Main String") %}
+          <option value="">None</option>
+          <template x-for="p in strings" :key="p.id">
+            <option :value="p.id" x-text="p.label"></option>
+          </template>
+        {% endcall %}
+        {% call form_select("addingMaint.cross_string_id", "Cross String") %}
+          <option value="">None</option>
+          <template x-for="p in strings" :key="p.id">
+            <option :value="p.id" x-text="p.label"></option>
+          </template>
+        {% endcall %}
+        <div class="grid grid-cols-2 gap-4">
+          {{ form_input("addingMaint.main_tension_kg", "Main Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
+          {{ form_input("addingMaint.cross_tension_kg", "Cross Tension (kg)", type="number", attrs='step="0.5" min="0" max="50"') }}
+        </div>
+        {{ form_input("addingMaint.string_pattern", "String Pattern", attrs='placeholder="e.g. 16x19"') }}
+      </div>
+
+      <!-- Grip & Accessories -->
+      <div class="space-y-3">
+        <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b dark:border-gray-700 pb-1">Grip &amp; Accessories</h4>
+        {% call form_select("addingMaint.base_grip_id", "Base Grip") %}
+          <option value="">None</option>
+          <template x-for="p in products" :key="p.id">
+            <option :value="p.id" x-text="p.label"></option>
+          </template>
+        {% endcall %}
+        {% call form_select("addingMaint.overgrip_id", "Overgrip") %}
+          <option value="">None</option>
+          <template x-for="p in products" :key="p.id">
+            <option :value="p.id" x-text="p.label"></option>
+          </template>
+        {% endcall %}
+        {{ form_input("addingMaint.number_of_overgrips", "# Overgrips", type="number", attrs='min="0" max="10"') }}
+        {% call form_select("addingMaint.dampener_id", "Dampener") %}
+          <option value="">None</option>
+          <template x-for="p in products" :key="p.id">
+            <option :value="p.id" x-text="p.label"></option>
+          </template>
+        {% endcall %}
+        {{ form_input("addingMaint.dampener_position", "Dampener Position", attrs='placeholder="e.g. center"') }}
+      </div>
+    </div>
+
+    <!-- Notes + extras -->
+    <div class="grid grid-cols-2 gap-4 items-start">
+      {{ form_textarea("addingMaint.notes", "Notes") }}
+      <div class="space-y-3">
+        {{ form_input("addingMaint.next_service_due_date", "Next Service Due", type="date") }}
+        {{ form_checkbox("addingMaint.is_warranty_service", "Warranty Service", "addmaint-warranty") }}
+      </div>
+    </div>
+
+    {{ modal_buttons("closeAddMaint", "Add Job") }}
+  </form>
+  {% endcall %}
 
   {{ toast() }}
 
