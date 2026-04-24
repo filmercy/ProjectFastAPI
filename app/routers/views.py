@@ -42,8 +42,7 @@ async def dashboard(request: Request, db: AsyncSession = Depends(get_db)):
             "service_date": record.service_date.strftime("%Y-%m-%d") if record.service_date else "-",
         })
 
-    return templates.TemplateResponse("pages/dashboard.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "pages/dashboard.html", {
         "active_page": "dashboard",
         "stats": {
             "total_clients": total_clients,
@@ -60,8 +59,7 @@ async def clients_page(request: Request, db: AsyncSession = Depends(get_db)):
     clients = (await db.execute(
         select(Client).where(Client.is_active == True).order_by(Client.last_name)
     )).scalars().all()
-    return templates.TemplateResponse("pages/clients.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "pages/clients.html", {
         "active_page": "clients",
         "clients": [
             {
@@ -97,8 +95,29 @@ async def client_detail(client_id: str, request: Request, db: AsyncSession = Dep
         select(ClientRacket).where(ClientRacket.client_id == client_id).order_by(ClientRacket.brand)
     )).scalars().all()
 
-    return templates.TemplateResponse("pages/client_detail.html", {
-        "request": request,
+    all_products = (await db.execute(
+        select(Product).where(Product.is_active == True).order_by(Product.brand, Product.name)
+    )).scalars().all()
+
+    all_products_divided_by_category = {}
+    for p in all_products:
+        if p.category_id not in all_products_divided_by_category:
+            all_products_divided_by_category[p.category_id] = []
+        all_products_divided_by_category[p.category_id].append(p)
+
+    strings_category_id = (await db.execute(
+        select(ProductCategory.id).where(ProductCategory.name.ilike("%string%"))
+    )).scalar_one_or_none()
+    strings_for_dropdown = [
+        {"id": p.id, "label": f"{p.brand} — {p.name}"}
+        for p in all_products if p.category_id == strings_category_id
+    ]
+    products_for_dropdown = [
+        {"id": p.id, "label": f"{p.brand} — {p.name}"}
+        for p in all_products
+    ]
+
+    return templates.TemplateResponse(request, "pages/client_detail.html", {
         "active_page": "clients",
         "client": {
             "id": client.id,
@@ -129,6 +148,8 @@ async def client_detail(client_id: str, request: Request, db: AsyncSession = Dep
             }
             for r in rackets
         ],
+        "strings_for_dropdown": strings_for_dropdown,
+        "products_for_dropdown": products_for_dropdown,
     })
 
 
@@ -137,8 +158,7 @@ async def products_page(request: Request, db: AsyncSession = Depends(get_db)):
     products = (await db.execute(select(Product).where(Product.is_active == True).order_by(Product.name))).scalars().all()
     cats = (await db.execute(select(ProductCategory).order_by(ProductCategory.name))).scalars().all()
     categories_map = {c.id: c.name for c in cats}
-    return templates.TemplateResponse("pages/products.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "pages/products.html", {
         "active_page": "products",
         "categories": [{"id": c.id, "name": c.name} for c in cats],
         "products": [
@@ -164,8 +184,7 @@ async def products_page(request: Request, db: AsyncSession = Depends(get_db)):
 @router.get("/categories")
 async def categories_page(request: Request, db: AsyncSession = Depends(get_db)):
     categories = (await db.execute(select(ProductCategory).where(ProductCategory.is_active == True).order_by(ProductCategory.name))).scalars().all()
-    return templates.TemplateResponse("pages/categories.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "pages/categories.html", {
         "active_page": "categories",
         "categories": [{"name": c.name, "description": c.description} for c in categories],
     })
@@ -251,8 +270,7 @@ async def maintenance_page(request: Request, db: AsyncSession = Depends(get_db))
         for p in all_products
     ]
 
-    return templates.TemplateResponse("pages/maintenance.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "pages/maintenance.html", {
         "active_page": "maintenance",
         "jobs": jobs,
         "rackets_for_dropdown": rackets_for_dropdown,
