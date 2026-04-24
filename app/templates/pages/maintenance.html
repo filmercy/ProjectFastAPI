@@ -10,14 +10,18 @@ function maintenancePageData() {
   var jobs     = {{ jobs | tojson }};
   var rackets  = {{ rackets_for_dropdown | tojson }};
   var strings  = {{ strings_for_dropdown | tojson }};
-  var products = {{ products_for_dropdown | tojson }};
+  var baseGrips = {{ base_grips_for_dropdown | tojson }};
+  var overgrips = {{ overgrips_for_dropdown | tojson }};
+  var dampeners = {{ dampeners_for_dropdown | tojson }};
   return {
     search: '',
     allJobs: jobs,
     filtered: jobs,
     rackets: rackets,
     strings: strings,
-    products: products,
+    baseGrips: baseGrips,
+    overgrips: overgrips,
+    dampeners: dampeners,
     createOpen: false,
     creating: {},
     editOpen: false,
@@ -241,20 +245,20 @@ function maintenancePageData() {
 
           {% call form_select("creating.base_grip_id", "Base Grip") %}
             <option value="">None</option>
-            <template x-for="p in products" :key="p.id">
+            <template x-for="p in baseGrips" :key="p.id">
               <option :value="p.id" x-text="p.label"></option>
             </template>
           {% endcall %}
           {% call form_select("creating.overgrip_id", "Overgrip") %}
             <option value="">None</option>
-            <template x-for="p in products" :key="p.id">
+            <template x-for="p in overgrips" :key="p.id">
               <option :value="p.id" x-text="p.label"></option>
             </template>
           {% endcall %}
           {{ form_input("creating.number_of_overgrips", "# Overgrips", type="number", attrs='min="0" max="10"') }}
           {% call form_select("creating.dampener_id", "Dampener") %}
             <option value="">None</option>
-            <template x-for="p in products" :key="p.id">
+            <template x-for="p in dampeners" :key="p.id">
               <option :value="p.id" x-text="p.label"></option>
             </template>
           {% endcall %}
@@ -328,20 +332,20 @@ function maintenancePageData() {
         <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide border-b dark:border-gray-700 pb-1">Grip &amp; Accessories</h4>
         {% call form_select("editing.base_grip_id", "Base Grip") %}
           <option value="">None</option>
-          <template x-for="p in products" :key="p.id">
+          <template x-for="p in baseGrips" :key="p.id">
             <option :value="p.id" x-text="p.label"></option>
           </template>
         {% endcall %}
         {% call form_select("editing.overgrip_id", "Overgrip") %}
           <option value="">None</option>
-          <template x-for="p in products" :key="p.id">
+          <template x-for="p in overgrips" :key="p.id">
             <option :value="p.id" x-text="p.label"></option>
           </template>
         {% endcall %}
         {{ form_input("editing.number_of_overgrips", "# Overgrips", type="number", attrs='min="0" max="10"') }}
         {% call form_select("editing.dampener_id", "Dampener") %}
           <option value="">None</option>
-          <template x-for="p in products" :key="p.id">
+          <template x-for="p in dampeners" :key="p.id">
             <option :value="p.id" x-text="p.label"></option>
           </template>
         {% endcall %}

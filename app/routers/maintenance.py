@@ -192,20 +192,20 @@ async def update_maintenance_record(
     result = await db.execute(
         select(MaintenanceRecord).where(MaintenanceRecord.id == record_id)
     )
-    record = result.scalar_one_or_none()
+    db_record = result.scalar_one_or_none()
 
-    if not record:
+    if not db_record:
         raise NotFoundException(f"Maintenance record with ID {record_id} not found")
 
     # Update fields
     update_data = record.model_dump(exclude_unset=True)
     for field, value in update_data.items():
-        setattr(record, field, value)
+        setattr(db_record, field, value)
 
     await db.commit()
-    await db.refresh(record)
+    await db.refresh(db_record)
 
-    return record
+    return db_record
 
 
 @router.delete("/{record_id}", status_code=status.HTTP_204_NO_CONTENT)

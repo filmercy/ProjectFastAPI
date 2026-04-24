@@ -183,13 +183,17 @@ async def maintenance_page(request: Request, db: AsyncSession = Depends(get_db))
     )).scalars().all()
     products_map = {p.id: p.name for p in all_products}
 
-    strings_category_id = (await db.execute(
-        select(ProductCategory.id).where(ProductCategory.name.ilike("%string%"))
-    )).scalar_one_or_none()
-    strings_for_dropdown = [
-        {"id": p.id, "label": f"{p.brand} — {p.name}"}
-        for p in all_products if p.category_id == strings_category_id
-    ]
+    categories = (await db.execute(select(ProductCategory))).scalars().all()
+    
+    strings_category_ids = {c.id for c in categories if "string" in c.name.lower()}
+    base_grips_category_ids = {c.id for c in categories if "grip" in c.name.lower() and "over" not in c.name.lower()}
+    overgrips_category_ids = {c.id for c in categories if "overgrip" in c.name.lower()}
+    dampeners_category_ids = {c.id for c in categories if "dampener" in c.name.lower()}
+
+    strings_for_dropdown = [{"id": p.id, "label": f"{p.brand} — {p.name}"} for p in all_products if p.category_id in strings_category_ids]
+    base_grips_for_dropdown = [{"id": p.id, "label": f"{p.brand} — {p.name}"} for p in all_products if p.category_id in base_grips_category_ids]
+    overgrips_for_dropdown = [{"id": p.id, "label": f"{p.brand} — {p.name}"} for p in all_products if p.category_id in overgrips_category_ids]
+    dampeners_for_dropdown = [{"id": p.id, "label": f"{p.brand} — {p.name}"} for p in all_products if p.category_id in dampeners_category_ids]
     
 
     all_rackets = (await db.execute(
@@ -246,16 +250,13 @@ async def maintenance_page(request: Request, db: AsyncSession = Depends(get_db))
             "service_date": record.service_date.strftime("%Y-%m-%d") if record.service_date else "-",
         })
 
-    all_products_for_dropdown = [
-        {"id": p.id, "label": f"{p.brand} — {p.name}"}
-        for p in all_products
-    ]
-
     return templates.TemplateResponse("pages/maintenance.html", {
         "request": request,
         "active_page": "maintenance",
         "jobs": jobs,
         "rackets_for_dropdown": rackets_for_dropdown,
         "strings_for_dropdown": strings_for_dropdown,
-        "products_for_dropdown": all_products_for_dropdown,
+        "base_grips_for_dropdown": base_grips_for_dropdown,
+        "overgrips_for_dropdown": overgrips_for_dropdown,
+        "dampeners_for_dropdown": dampeners_for_dropdown,
     })
